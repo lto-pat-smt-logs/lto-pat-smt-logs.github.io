@@ -41,10 +41,76 @@
     </div>
 
     <script>
+        const LOGIN_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCu2bb3xAbvw0a4272JDu6PK0jRc0LTa5LenoCHx0kaGLanrlUESg0lIOrw0SiwS8A/exec";
+        const LOGIN_DEFAULT_USERS = [
+            { username: "admin36", pass: "123", role: "Super Admin", name: "Admin 36", defaultPortal: "FACEBOOK", logColor: "#9a4e2a", canReports: true, canDeleteLogs: true, canManageUsers: true, canAccessSettings: true },
+            { username: "admin42", pass: "123", role: "Admin", name: "Admin 42", defaultPortal: "IMKC", logColor: "Default", canReports: false, canDeleteLogs: false, canManageUsers: false, canAccessSettings: false },
+            { username: "janzen", pass: "password", role: "Admin", name: "Janzen Huwee N. Baltores", defaultPortal: "FACEBOOK", logColor: "Default", canReports: false, canDeleteLogs: false, canManageUsers: false, canAccessSettings: false }
+        ];
+
+        function readCachedUsers() {
+            try {
+                const saved = localStorage.getItem('LTO_CPAO_USERS_2026');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (err) {}
+            return [...LOGIN_DEFAULT_USERS];
+        }
+
+        function writeCachedUsers(usersList) {
+            if (!Array.isArray(usersList) || usersList.length === 0) return;
+            try {
+                localStorage.setItem('LTO_CPAO_USERS_2026', JSON.stringify(usersList));
+            } catch (err) {}
+        }
+
+        function mergeUsersLists(localList, cloudList) {
+            const byUsername = new Map();
+            (Array.isArray(localList) ? localList : []).forEach(u => {
+                if (u && u.username) {
+                    byUsername.set(String(u.username).trim().toLowerCase(), { ...u });
+                }
+            });
+            (Array.isArray(cloudList) ? cloudList : []).forEach(u => {
+                if (u && u.username) {
+                    const key = String(u.username).trim().toLowerCase();
+                    const prev = byUsername.get(key) || {};
+                    byUsername.set(key, { ...prev, ...u });
+                }
+            });
+            return Array.from(byUsername.values());
+        }
+
+        async function refreshUsersFromCloudSilent() {
+            const existing = readCachedUsers();
+            try {
+                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const timer = controller ? setTimeout(() => controller.abort(), 3500) : null;
+                const resp = await fetch(LOGIN_APPS_SCRIPT_URL + "?action=getUsers&t=" + Date.now(), {
+                    mode: 'cors',
+                    signal: controller ? controller.signal : undefined
+                });
+                if (timer) clearTimeout(timer);
+                if (!resp.ok) return existing;
+                const data = await resp.json();
+                const cloudUsers = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : []);
+                if (cloudUsers.length > 0) {
+                    const merged = mergeUsersLists(existing, cloudUsers);
+                    writeCachedUsers(merged);
+                    return merged;
+                }
+            } catch (err) {}
+            return existing;
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 sessionStorage.removeItem('LTO_ACTIVE_USER');
                 localStorage.removeItem('LTO_ACTIVE_USER');
+                const cached = readCachedUsers();
+                writeCachedUsers(cached);
                 const params = new URLSearchParams(window.location.search);
                 if (params.get('reason') === 'idle') {
                     const errEl = document.getElementById('loginErrorMsg');
@@ -54,6 +120,7 @@
                     }
                 }
             } catch (e) {}
+            refreshUsersFromCloudSilent();
         });
 
         function toggleLoginPasswordVisibility() {
@@ -68,35 +135,43 @@
             if (eyeHide) eyeHide.classList.toggle('hidden', !isPassword);
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const uInput = document.getElementById('loginUsername').value.trim().toLowerCase();
             const pInput = document.getElementById('loginPassword').value.trim();
             const errEl = document.getElementById('loginErrorMsg');
+            const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
 
-            let users = [];
-            try {
-                const saved = localStorage.getItem('LTO_CPAO_USERS_2026');
-                if (saved) users = JSON.parse(saved);
-            } catch(err) {}
-
-            if (!users || users.length === 0) {
-                users = [
-                    { username: "admin36", pass: "123", role: "Super Admin", name: "Admin 36", defaultPortal: "FACEBOOK", logColor: "#9a4e2a", canReports: true, canDeleteLogs: true, canManageUsers: true, canAccessSettings: true },
-                    { username: "admin42", pass: "123", role: "Admin", name: "Admin 42", defaultPortal: "IMKC", logColor: "Default", canReports: false, canDeleteLogs: false, canManageUsers: false, canAccessSettings: false },
-                    { username: "janzen", pass: "password", role: "Admin", name: "Janzen Huwee N. Baltores", defaultPortal: "FACEBOOK", logColor: "Default", canReports: false, canDeleteLogs: false, canManageUsers: false, canAccessSettings: false }
-                ];
-                localStorage.setItem('LTO_CPAO_USERS_2026', JSON.stringify(users));
+            if (errEl) errEl.classList.add('hidden');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Signing In...";
             }
 
-            const found = users.find(u => String(u.username || '').trim().toLowerCase() === uInput && String(u.pass || '').trim() === pInput);
-            
-            if (found) {
-                sessionStorage.setItem('LTO_ACTIVE_USER', JSON.stringify(found));
-                window.location.href = 'index.html';
-            } else {
-                errEl.textContent = "Invalid username or password. Please try again.";
-                errEl.classList.remove('hidden');
+            try {
+                let users = readCachedUsers();
+                let found = users.find(u => String(u.username || '').trim().toLowerCase() === uInput && String(u.pass || '').trim() === pInput);
+
+                if (!found) {
+                    users = await refreshUsersFromCloudSilent();
+                    found = users.find(u => String(u.username || '').trim().toLowerCase() === uInput && String(u.pass || '').trim() === pInput);
+                }
+
+                if (found) {
+                    sessionStorage.setItem('LTO_ACTIVE_USER', JSON.stringify(found));
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                if (errEl) {
+                    errEl.textContent = "Invalid username or password. Please try again.";
+                    errEl.classList.remove('hidden');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Sign In to Portal";
+                }
             }
         }
     </script>

@@ -1287,6 +1287,36 @@ async function flushPendingSyncQueue(silent = true) {
     }
 }
 
+
+const inflightGetRequests = new Map();
+let latestCloudLogsCache = { data: null, fetchedAt: 0 };
+const CLOUD_LOGS_DEDUPE_MS = 1500;
+
+function fetchCloudLogsJson(forceFresh = false) {
+    const now = Date.now();
+    if (!forceFresh && latestCloudLogsCache.data && (now - latestCloudLogsCache.fetchedAt) < CLOUD_LOGS_DEDUPE_MS) {
+        return Promise.resolve(latestCloudLogsCache.data);
+    }
+    const key = forceFresh ? "logs_fresh" : "logs_cached";
+    if (inflightGetRequests.has(key)) {
+        return inflightGetRequests.get(key);
+    }
+    const reqPromise = fetch(APPS_SCRIPT_URL + "?t=" + now, { mode: 'cors' })
+        .then(resp => {
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+        })
+        .then(json => {
+            latestCloudLogsCache = { data: json, fetchedAt: Date.now() };
+            return json;
+        })
+        .finally(() => {
+            inflightGetRequests.delete(key);
+        });
+    inflightGetRequests.set(key, reqPromise);
+    return reqPromise;
+}
+
 async function pollRealtimeUpdates() {
     if (isSavingTicket || isFlushingSyncQueue) return;
     if (loadPendingSyncQueue().length > 0) return;
@@ -1298,9 +1328,7 @@ async function pollRealtimeUpdates() {
     if (ticketModalOpen || userModalOpen || endorseModalOpen || dupModalOpen) return;
 
     try {
-        const logsResp = await fetch(APPS_SCRIPT_URL + "?t=" + Date.now(), { mode: 'cors' });
-        if (!logsResp.ok) return;
-        const logsResult = await logsResp.json();
+        const logsResult = await fetchCloudLogsJson(false);
         if (isSavingTicket || loadPendingSyncQueue().length > 0) return;
 
         if (Array.isArray(logsResult)) {
@@ -1446,10 +1474,12 @@ async function initSystem() {
     updateSyncStatusBadge(loadPendingSyncQueue().length > 0 ? "queued" : "synced");
 
     await flushPendingSyncQueue(true);
-    await fetchSettingsFromCloud();
-    await fetchUsersFromCloud();
-    await fetchFromGoogleSheets();
-    await fetchOffDatesFromCloud();
+    await Promise.allSettled([
+        fetchSettingsFromCloud(),
+        fetchUsersFromCloud(),
+        fetchFromGoogleSheets(),
+        fetchOffDatesFromCloud()
+    ]);
     checkScheduledPortalAssignment();
     applyDefaultViewScopeForUser();
 
@@ -1473,11 +1503,13 @@ async function initSystem() {
 async function fetchAllCloudData() {
     updateSyncStatusBadge("syncing");
     await flushPendingSyncQueue(false);
-    await saveAllSettingsToCloud(true);
-    await fetchSettingsFromCloud();
-    await fetchUsersFromCloud();
-    await fetchFromGoogleSheets();
-    await fetchOffDatesFromCloud();
+    await Promise.allSettled([
+        saveAllSettingsToCloud(true),
+        fetchSettingsFromCloud(),
+        fetchUsersFromCloud(),
+        fetchFromGoogleSheets(),
+        fetchOffDatesFromCloud()
+    ]);
     checkScheduledPortalAssignment();
     loadReportConfigToUI();
     populateDropdowns();
@@ -1621,9 +1653,7 @@ async function saveAllSettingsToCloud(silent = false) {
 
 async function fetchFromGoogleSheets() {
     try {
-        let response = await fetch(APPS_SCRIPT_URL + "?t=" + Date.now(), { mode: 'cors' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        let result = await response.json();
+        let result = await fetchCloudLogsJson(true);
         if (Array.isArray(result)) {
             const validRows = result.filter(item => !String(item.rowIndex || item['#'] || '').toUpperCase().startsWith('DATE:'));
             AppState.tickets = mergeQueuedTicketsIntoList(
@@ -4197,10 +4227,16 @@ function ticketMatchesSearchTerm(ticket, searchLower) {
         ticket.adminNo,
         ticket.actionTaken,
         ticket.status,
-        ticket.ticketType,
-        JSON.stringify(ticket.extraData || {})
+        ticket.ticketType
     ];
-    return searchableFields.some(v => String(v || '').toLowerCase().includes(searchLower));
+    if (searchableFields.some(v => v && String(v).toLowerCase().includes(searchLower))) {
+        return true;
+    }
+    const extra = ticket.extraData;
+    if (extra && typeof extra === "object") {
+        return Object.values(extra).some(ev => ev && typeof ev !== "object" && String(ev).toLowerCase().includes(searchLower));
+    }
+    return false;
 }
 
 function ticketMatchesAdminSearch(ticket, searchLower) {
