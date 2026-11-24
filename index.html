@@ -52,6 +52,7 @@
     <nav class="bg-slate-950 border-b border-slate-800 px-4 flex items-center gap-2 overflow-x-auto text-xs font-bold no-print">
         <button type="button" id="tabBtnLogs" onclick="switchMainTab('logs')" class="px-4 py-2.5 border-b-2 text-sky-400 border-sky-400 whitespace-nowrap transition">📋 PAT/SMT Logs Sheet</button>
         <button type="button" id="tabBtnAccomplishment" onclick="switchMainTab('accomplishment')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📑 Accomplishment Report</button>
+        <button type="button" id="tabBtnSupervisor" style="display: none;" onclick="switchMainTab('supervisor')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📊 Supervisor Statistics</button>
         <button type="button" id="tabBtnReports" style="display: none;" onclick="switchMainTab('reports')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📊 Reports Generator</button>
         <button type="button" id="tabBtnWorkflow" onclick="switchMainTab('workflow')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">⚡ CPAO Workflow Engine</button>
         <button type="button" id="tabBtnClipboard" onclick="switchMainTab('clipboard')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">💬 Responder Clipboard</button>
@@ -107,7 +108,7 @@
 
             <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <div class="flex flex-wrap items-center gap-2 flex-1">
-                    <button type="button" id="btnLogTicket" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold rounded-lg shadow transition whitespace-nowrap">+ Log New</button>
+                    <button type="button" id="btnLogTicket" onclick="openTicketModal(null)" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold rounded-lg shadow transition whitespace-nowrap">+ Log New</button>
                     <input type="text" id="searchInput" oninput="renderTable()" placeholder="🔍 Search ticket #, complainant, email..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white w-52 sm:w-64 focus:outline-none focus:border-sky-500">
                     
                     <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs">
@@ -221,6 +222,103 @@
             <!-- ISOLATED SCROLL CONTAINER FOR ACCOMPLISHMENT REPORT PREVIEW -->
             <div id="accomplishmentReportContainer" class="bg-slate-950 border border-slate-800 rounded-xl p-6 max-h-[62vh] overflow-y-auto">
                 <div class="text-center py-16 text-slate-500 text-xs">Loading Accomplishment Report preview...</div>
+            </div>
+        </div>
+
+        <!-- VIEW 1C: SUPERVISOR STATISTICS (ADMIN SV / ADMINTL / SUPER ADMIN) -->
+        <div id="viewSupervisor" class="hidden flex-col space-y-3 overflow-y-auto">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div>
+                    <h2 class="font-extrabold text-sm text-white uppercase">📊 Supervisor Admin Performance &amp; Response Rate Statistics</h2>
+                    <p class="text-[11px] text-slate-400">Monitor daily, weekly, monthly, and annual admin logs, total answered/closed tickets, response rate, and pending workload.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-1">
+                        <button type="button" id="svPeriodDaily" onclick="setSupervisorPeriod('daily')" class="px-3 py-1.5 rounded-md font-bold bg-sky-600 text-white">Daily</button>
+                        <button type="button" id="svPeriodWeekly" onclick="setSupervisorPeriod('weekly')" class="px-3 py-1.5 rounded-md font-bold text-slate-300 hover:bg-slate-800">Weekly</button>
+                        <button type="button" id="svPeriodMonthly" onclick="setSupervisorPeriod('monthly')" class="px-3 py-1.5 rounded-md font-bold text-slate-300 hover:bg-slate-800">Monthly</button>
+                        <button type="button" id="svPeriodAnnual" onclick="setSupervisorPeriod('annual')" class="px-3 py-1.5 rounded-md font-bold text-slate-300 hover:bg-slate-800">Annual</button>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Reference Date:</span>
+                        <input type="text" id="svRefDateDisplay" readonly onclick="openSystemDatePicker('svRefDate', this)" placeholder="MM/DD/YYYY" class="bg-transparent text-amber-400 font-mono font-bold focus:outline-none text-xs cursor-pointer w-24">
+                        <input type="hidden" id="svRefDate" onchange="renderSupervisorStatistics()">
+                    </div>
+                    <select id="svAdminFilter" onchange="renderSupervisorStatistics()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-bold">
+                        <option value="">All Admins</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 shrink-0">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Period Total Logs</span>
+                    <span id="svKpiTotalLogs" class="text-xl font-extrabold text-white">0</span>
+                    <span id="svKpiPeriodLabel" class="text-[10px] font-mono text-sky-400 block mt-0.5">Daily</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Total Answered / Closed</span>
+                    <span id="svKpiAnswered" class="text-xl font-extrabold text-emerald-400">0</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">Resolved / Responded</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Overall Response Rate</span>
+                    <span id="svKpiResponseRate" class="text-xl font-extrabold text-amber-400">0%</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">Answered / Total Logs</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Pending / Endorsed</span>
+                    <span id="svKpiPending" class="text-xl font-extrabold text-rose-400">0</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">Awaiting Action</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 col-span-2 sm:col-span-1">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Active Admins</span>
+                    <span id="svKpiActiveAdmins" class="text-xl font-extrabold text-sky-400">0</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">With Logs in Period</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 shrink-0">
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-extrabold text-xs text-sky-400 uppercase">Logs &amp; Answered Count per Admin</h3>
+                        <span class="text-[10px] font-mono text-slate-400">Visual Bar Graph</span>
+                    </div>
+                    <div id="svAdminBarChart" class="space-y-2.5 max-h-72 overflow-y-auto pr-1"></div>
+                </div>
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-extrabold text-xs text-amber-400 uppercase">Supervisor Oversight &amp; SLA Summary</h3>
+                        <span class="text-[10px] font-mono text-slate-400">Boss Snapshot</span>
+                    </div>
+                    <div id="svOversightSummary" class="space-y-2.5 text-xs"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex-1">
+                <div class="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                    <span class="font-extrabold text-xs text-white uppercase">Admin Breakdown Table (Daily / Weekly / Monthly / Annual)</span>
+                    <span id="svDateRangeText" class="text-[11px] font-mono text-amber-300"></span>
+                </div>
+                <div class="overflow-auto max-h-80">
+                    <table class="w-full border-collapse text-left text-xs">
+                        <thead class="bg-slate-950 text-slate-300 sticky top-0 border-b border-slate-800">
+                            <tr class="[&>th]:p-3 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase [&>th]:whitespace-nowrap">
+                                <th>Admin / Operator</th>
+                                <th>Role</th>
+                                <th class="text-right">Daily Logs</th>
+                                <th class="text-right">Weekly Logs</th>
+                                <th class="text-right">Monthly Logs</th>
+                                <th class="text-right">Annual Logs</th>
+                                <th class="text-right">Selected Period Logs</th>
+                                <th class="text-right">Total Answered</th>
+                                <th class="text-right">Pending</th>
+                                <th class="text-right">Response Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="svAdminStatsTableBody" class="divide-y divide-slate-800 [&>tr>td]:p-3"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -358,7 +456,7 @@
                         </div>
                         <div>
                             <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Working Days</label>
-                            <select id="calcDays" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white">
+                            <select id="calcDays" onchange="runWorkdayCalculator()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white">
                                 <option value="3">3 Working Days (Simple)</option>
                                 <option value="7">7 Working Days (Complex)</option>
                                 <option value="20">20 Working Days (Highly Technical)</option>
@@ -588,7 +686,7 @@
         <!-- VIEW 9: SUPERADMIN SETTINGS -->
         <div id="viewSettings" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
             <div class="flex items-center justify-between flex-wrap gap-2">
-                <h2 class="font-extrabold text-sm text-white uppercase">⚙️ System Dropdowns &amp; Portal Configurations</h2>
+                <h2 class="font-extrabold text-sm text-white uppercase">⚙️ System Dropdowns, Column Names &amp; Portal Configurations</h2>
                 <button type="button" onclick="saveAllSettingsToCloud()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">💾 Save All Settings to Cloud</button>
             </div>
 
@@ -603,6 +701,21 @@
                     <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer border border-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                     <span id="cfgResponderClipboardStatusLabel" class="ml-2.5 text-xs font-extrabold text-emerald-400 uppercase">ENABLED</span>
                 </label>
+            </div>
+
+            <!-- CUSTOMIZABLE TABLE & GRAPH COLUMN NAMES (SUPERADMIN & ADMINTL) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                    <div>
+                        <h3 class="font-extrabold text-xs text-amber-400 uppercase tracking-wide">🏷️ Customize Table &amp; Graph Column Names</h3>
+                        <p class="text-[11px] text-slate-400">Baguhin ang mga column label sa tables at graphs (hal. "Received" → "Acknowledged") at i-save ang configuration.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="resetColumnLabelsToDefault()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-bold transition">Reset Defaults</button>
+                        <button type="button" onclick="saveColumnLabelsConfig()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition">💾 Save Column Names</button>
+                    </div>
+                </div>
+                <div id="customColumnLabelsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs"></div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -1172,6 +1285,7 @@
                         <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Role</label>
                         <select id="formUserRole" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
                             <option value="Admin">Admin</option>
+                            <option value="AdminSV">AdminSV</option>
                             <option value="AdminTL">AdminTL</option>
                             <option value="Super Admin">Super Admin</option>
                         </select>

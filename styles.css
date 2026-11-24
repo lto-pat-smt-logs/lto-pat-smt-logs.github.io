@@ -201,7 +201,7 @@ body.role-normal-admin .calc-date-toggle-btn {
         -webkit-box-decoration-break: clone !important;
     }
 
-    body.printing-endorse #viewLogs, body.printing-endorse #viewReports, body.printing-endorse #viewWorkflow, body.printing-endorse #viewClipboard, body.printing-endorse #viewWorkday, body.printing-endorse #viewUsers, body.printing-endorse #viewDirectory, body.printing-endorse #viewDirectoryOfficials, body.printing-endorse #viewTemplate, body.printing-endorse #viewSettings {
+    body.printing-endorse #viewLogs, body.printing-endorse #viewReports, body.printing-endorse #viewSupervisor, body.printing-endorse #viewWorkflow, body.printing-endorse #viewClipboard, body.printing-endorse #viewWorkday, body.printing-endorse #viewUsers, body.printing-endorse #viewDirectory, body.printing-endorse #viewDirectoryOfficials, body.printing-endorse #viewTemplate, body.printing-endorse #viewSettings {
         display: none !important;
     }
     body.printing-endorse #endorsePreviewModal {
@@ -419,6 +419,7 @@ body.role-normal-admin .off-date-remove-btn {
     /* Printing Endorsement Letter */
     body.printing-endorse #viewLogs,
     body.printing-endorse #viewAccomplishment,
+    body.printing-endorse #viewSupervisor,
     body.printing-endorse #viewReports,
     body.printing-endorse #viewWorkflow,
     body.printing-endorse #viewClipboard,
@@ -454,6 +455,7 @@ body.role-normal-admin .off-date-remove-btn {
     /* Printing Reports Generator */
     body.printing-report #viewLogs,
     body.printing-report #viewAccomplishment,
+    body.printing-report #viewSupervisor,
     body.printing-report #viewWorkflow,
     body.printing-report #viewClipboard,
     body.printing-report #viewWorkday,
@@ -482,6 +484,7 @@ body.role-normal-admin .off-date-remove-btn {
     /* Printing Accomplishment Report */
     body.printing-accomplishment #viewLogs,
     body.printing-accomplishment #viewReports,
+    body.printing-accomplishment #viewSupervisor,
     body.printing-accomplishment #viewWorkflow,
     body.printing-accomplishment #viewClipboard,
     body.printing-accomplishment #viewWorkday,
