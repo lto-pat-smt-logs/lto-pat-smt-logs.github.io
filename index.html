@@ -60,6 +60,7 @@
         <button type="button" id="tabBtnTemplate" style="display: none;" onclick="switchMainTab('template')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📝 Endorsement Template</button>
         <button type="button" id="tabBtnUsers" style="display: none;" onclick="switchMainTab('users')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">👥 User Accounts</button>
         <button type="button" id="tabBtnSettings" style="display: none;" onclick="switchMainTab('settings')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">⚙️ Superadmin Settings</button>
+        <button type="button" id="tabBtnSupervisor" style="display: none;" onclick="switchMainTab('supervisor')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📈 Supervisor Stats</button>
     </nav>
 
     <!-- MAIN CONTAINER -->
@@ -592,6 +593,87 @@
                 <button type="button" onclick="saveAllSettingsToCloud()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">💾 Save All Settings to Cloud</button>
             </div>
 
+            <!-- TABLE & GRAPH COLUMN NAME CONFIGURATION (SUPER ADMIN & ADMINTL) -->
+            <div id="columnNamesConfigCard" class="bg-slate-900/90 border border-amber-500/30 p-4 rounded-xl space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-xs font-extrabold uppercase text-amber-300">🏷️ Table &amp; Graph Column Names Configuration</h3>
+                        <p class="text-[11px] text-slate-400">Customize column labels across tables, status labels (e.g. Received → Acknowledged), and graphs, then save.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="resetColumnLabelsDefault()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg transition">↺ Reset Defaults</button>
+                        <button type="button" onclick="saveColumnLabelsConfig()" class="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-lg shadow transition">💾 Save Column Names</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Received / Acknowledged Label</label>
+                        <input type="text" id="cfgColReceived" placeholder="Acknowledged" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Admin No. Column</label>
+                        <input type="text" id="cfgColAdminNo" placeholder="ADMIN NO." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Platform Column</label>
+                        <input type="text" id="cfgColPlatform" placeholder="PLATFORM" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Referral / Ticket No. Column</label>
+                        <input type="text" id="cfgColReferralNo" placeholder="REFERRAL / TICKET NO." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Date Received Column</label>
+                        <input type="text" id="cfgColDateReceived" placeholder="DATE RECEIVED" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Category Column</label>
+                        <input type="text" id="cfgColCategory" placeholder="CATEGORY" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Type of Ticket Column</label>
+                        <input type="text" id="cfgColTicketType" placeholder="TYPE OF TICKET" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Name of Complainant Column</label>
+                        <input type="text" id="cfgColComplainantName" placeholder="NAME OF COMPLAINANT" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Details of Ticket Column</label>
+                        <input type="text" id="cfgColTicketDetails" placeholder="DETAILS OF TICKET" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Details of Response Column</label>
+                        <input type="text" id="cfgColResponseDetails" placeholder="DETAILS OF RESPONSE" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Action Taken Column</label>
+                        <input type="text" id="cfgColActionTaken" placeholder="ACTION TAKEN" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Status Column</label>
+                        <input type="text" id="cfgColStatus" placeholder="STATUS" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Remarks Column</label>
+                        <input type="text" id="cfgColRemarks" placeholder="REMARKS" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Graph Total Label</label>
+                        <input type="text" id="cfgGraphTotalLabel" placeholder="TOTAL" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Graph Platform Title</label>
+                        <input type="text" id="cfgGraphPlatformTitle" placeholder="Tickets by Platform" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Graph Category Title</label>
+                        <input type="text" id="cfgGraphCategoryTitle" placeholder="Tickets by Category" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                </div>
+            </div>
+
+
             <!-- GLOBAL FEATURE PRIVILEGE CONTROL (RESPONDER CLIPBOARD TOGGLE) -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -679,6 +761,90 @@
                 </div>
             </div>
         </div>
+
+        <!-- VIEW 10: SUPERVISOR STATISTICS (ADMINSV / ADMINTL / SUPER ADMIN) -->
+        <div id="viewSupervisor" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2 class="font-extrabold text-sm text-white uppercase">📈 Supervisor / Boss Statistics &amp; Response Rate</h2>
+                    <p class="text-[11px] text-slate-400">Daily, Weekly, Monthly, and Annual admin log volume, answered/closed totals, and response rates</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <select id="supPeriodSelect" onchange="renderSupervisorStats()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-bold text-amber-300">
+                        <option value="daily">Daily (Today)</option>
+                        <option value="weekly">Weekly (This Week)</option>
+                        <option value="monthly">Monthly (This Month)</option>
+                        <option value="annual">Annual (This Year)</option>
+                    </select>
+                    <button type="button" onclick="fetchAllCloudData()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow transition">🔄 Refresh Stats</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Period Total Logs</span>
+                    <span id="supKpiTotal" class="text-2xl font-black text-white">0</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Total Answered / Closed</span>
+                    <span id="supKpiAnswered" class="text-2xl font-black text-emerald-400">0</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Pending / Unanswered</span>
+                    <span id="supKpiPending" class="text-2xl font-black text-amber-400">0</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Overall Response Rate</span>
+                    <span id="supKpiRate" class="text-2xl font-black text-sky-400">0%</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <span class="text-[10px] font-bold uppercase text-slate-400 block">Active Admins</span>
+                    <span id="supKpiAdmins" class="text-2xl font-black text-purple-400">0</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <div class="text-[10px] font-bold uppercase text-slate-400">Daily (Today)</div>
+                    <div id="supSummaryDaily" class="text-sm font-extrabold text-white mt-1">0 Logs • 0% Rate</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <div class="text-[10px] font-bold uppercase text-slate-400">Weekly (Current Week)</div>
+                    <div id="supSummaryWeekly" class="text-sm font-extrabold text-white mt-1">0 Logs • 0% Rate</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <div class="text-[10px] font-bold uppercase text-slate-400">Monthly (Current Month)</div>
+                    <div id="supSummaryMonthly" class="text-sm font-extrabold text-white mt-1">0 Logs • 0% Rate</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                    <div class="text-[10px] font-bold uppercase text-slate-400">Annual (Current Year)</div>
+                    <div id="supSummaryAnnual" class="text-sm font-extrabold text-white mt-1">0 Logs • 0% Rate</div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-auto">
+                <div class="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+                    <h3 class="text-xs font-extrabold uppercase text-amber-300">Per-Admin Performance Breakdown</h3>
+                    <span id="supPeriodLabel" class="text-[11px] text-slate-400"></span>
+                </div>
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
+                        <tr class="[&>th]:p-3 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase">
+                            <th>Admin / Operator</th>
+                            <th class="text-center">Daily Logs</th>
+                            <th class="text-center">Weekly Logs</th>
+                            <th class="text-center">Monthly Logs</th>
+                            <th class="text-center">Annual Logs</th>
+                            <th class="text-center">Answered (Selected)</th>
+                            <th class="text-center">Pending (Selected)</th>
+                            <th class="text-center">Response Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="supervisorStatsTableBody" class="divide-y divide-slate-800 [&>tr>td]:p-3"></tbody>
+                </table>
+            </div>
+        </div>
+
     </main>
 
     <!-- TICKET CREATE / EDIT MODAL -->
@@ -1173,6 +1339,7 @@
                         <select id="formUserRole" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
                             <option value="Admin">Admin</option>
                             <option value="AdminTL">AdminTL</option>
+                            <option value="AdminSV">AdminSV</option>
                             <option value="Super Admin">Super Admin</option>
                         </select>
                     </div>
