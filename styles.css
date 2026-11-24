@@ -3,9 +3,9 @@
 ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #334155; }
 
-/* PENDING STATUS ROW COLOR: Soft/Muted Orange (hindi masakit sa mata) */
-.row-pending { background-color: rgba(194, 104, 26, 0.22); color: #fde68a; }
-.row-pending:hover { background-color: rgba(194, 104, 26, 0.35); }
+/* PENDING STATUS ROW COLOR: Red */
+.row-pending { background-color: #b91c1c !important; color: #fef2f2 !important; }
+.row-pending:hover { background-color: #991b1b !important; }
 
 .chip-pill {
     display: inline-block;
@@ -303,11 +303,11 @@ input[type="date"] {
 }
 
 .row-pending {
-    background-color: #b45309 !important;
-    color: #fffbeb !important;
+    background-color: #b91c1c !important;
+    color: #fef2f2 !important;
 }
 .row-pending:hover {
-    background-color: #92400e !important;
+    background-color: #991b1b !important;
 }
 
 /* Chip / Pill Styling */

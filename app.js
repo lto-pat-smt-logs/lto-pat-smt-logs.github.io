@@ -1333,6 +1333,12 @@ async function pollRealtimeUpdates() {
                 saveStorage();
                 renderTable();
                 updateKPIs();
+                if (document.getElementById('viewReports')?.style.display !== 'none' && document.getElementById('repStartDate')?.value && document.getElementById('repEndDate')?.value) {
+                    generateReport();
+                }
+                if (document.getElementById('viewAccomplishment')?.style.display !== 'none') {
+                    generateAccomplishmentReport();
+                }
             }
             updateSyncStatusBadge("synced");
         }
@@ -1632,6 +1638,12 @@ async function fetchFromGoogleSheets() {
             saveStorage();
             renderTable();
             updateKPIs();
+            if (document.getElementById('viewReports')?.style.display !== 'none' && document.getElementById('repStartDate')?.value && document.getElementById('repEndDate')?.value) {
+                generateReport();
+            }
+            if (document.getElementById('viewAccomplishment')?.style.display !== 'none') {
+                generateAccomplishmentReport();
+            }
             updateSyncStatusBadge(loadPendingSyncQueue().length > 0 ? "queued" : "synced");
         }
     } catch(e) {
@@ -2734,7 +2746,7 @@ function switchMainTab(tabName) {
             if(t === 'template') renderTemplateEditorUI();
             if(t === 'users') renderUsersTable();
             if(t === 'settings') renderSettingsTables();
-            if(t === 'reports') { loadReportConfigToUI(); if (!document.getElementById('repStartDate').value) setReportPreset('weekly'); else generateReport(); }
+            if(t === 'reports') { loadReportConfigToUI(); populateReportFilterDropdowns(); if (!document.getElementById('repStartDate').value || !document.getElementById('repEndDate').value) setReportPreset('weekly'); else generateReport(); }
             if(t === 'accomplishment') { initAccomplishmentTab(); }
             if(t === 'workday') { renderCalcCalendar(); renderSavedOffDatesSummary(); }
         } else {
@@ -2958,7 +2970,7 @@ function exportReportCSV() {
     if (!startISO || !endISO) return;
     const filtered = AppState.tickets.filter(t => {
         const iso = mmddyyyyToISO(t.dateReceived);
-        return new Date(iso) >= new Date(startISO) && new Date(iso) <= new Date(endISO);
+        return /^\d{4}-\d{2}-\d{2}$/.test(iso) && iso >= startISO && iso <= endISO;
     });
     let csv = 'Admin No,Platform,Ticket No,Date Received,Category Group,Category,Type,Complainant,Details,Response,Action Taken,Status,Remarks\n' +
         filtered.map(t => `"${t.adminNo}","${t.platform}","${t.referralNo}","${t.dateReceived}","${getGroupForCategory(t.category)}","${t.category}","${t.ticketType}","${t.complainantName}","${(t.ticketDetails || '').replace(/"/g, '""')}","${(t.responseDetails || '').replace(/"/g, '""')}","${t.actionTaken}","${t.status}","${t.remarks}"`).join('\n');
@@ -4279,6 +4291,40 @@ function updateKPIs(filteredList = null) {
     document.getElementById('kpiRate').textContent = `${rate}%`;
 }
 
+function resolveTicketOwnerLogColor(ticket) {
+    const tAdminRaw = String(ticket?.adminNo || '').trim().toLowerCase();
+    const tDigits = tAdminRaw.replace(/\D/g, '');
+    const usersList = Array.isArray(AppState.users) ? AppState.users : [];
+
+    const matchedUser = usersList.find(u => {
+        if (!u) return false;
+        const uUsername = String(u.username || '').trim().toLowerCase();
+        const uName = String(u.name || '').trim().toLowerCase();
+        const uAdminNo = String(u.adminNo || deriveOperatorAdminNo(u) || '').trim().toLowerCase();
+        const uDigits = (uAdminNo || uUsername || uName).replace(/\D/g, '');
+
+        if (uDigits && tDigits && uDigits === tDigits) return true;
+        if (uAdminNo && tAdminRaw && uAdminNo === tAdminRaw) return true;
+        if (uUsername && tAdminRaw && (tAdminRaw === uUsername || tAdminRaw.includes(uUsername))) return true;
+        if (uName && tAdminRaw && tAdminRaw === uName) return true;
+        return false;
+    });
+
+    if (matchedUser) {
+        const localColor = localStorage.getItem('LTO_COLOR_' + matchedUser.username);
+        const rawColor = (localColor && localColor !== 'Default') ? localColor : matchedUser.logColor;
+        if (rawColor && String(rawColor).trim() !== '' && String(rawColor).trim().toLowerCase() !== 'default') {
+            return String(rawColor).trim();
+        }
+    }
+
+    if (isTicketOwnedByCurrentUser(ticket) && currentUser.logColor && currentUser.logColor !== 'Default') {
+        return String(currentUser.logColor).trim();
+    }
+
+    return null;
+}
+
 function renderTable() {
     const tbody = document.getElementById('logTableBody');
     if (!tbody) return;
@@ -4300,14 +4346,19 @@ function renderTable() {
         const isClosed = ticket.status && ticket.status.toLowerCase() === 'closed';
         const isPending = !isClosed;
 
+        const ownerLogColor = resolveTicketOwnerLogColor(ticket);
+
         if (isPending) {
             tr.className = 'row-pending';
-            tr.style.backgroundColor = '#b45309';
-            tr.style.color = '#fffbeb';
-        } else if (currentUser.logColor && currentUser.logColor !== 'Default') {
-            tr.style.backgroundColor = currentUser.logColor;
+            tr.style.backgroundColor = '#b91c1c';
+            tr.style.color = '#fef2f2';
+        } else if (ownerLogColor) {
+            tr.className = '';
+            tr.style.backgroundColor = ownerLogColor;
             tr.style.color = '#ffffff';
         } else {
+            tr.style.backgroundColor = '';
+            tr.style.color = '';
             tr.className = 'row-terracotta';
         }
 
@@ -4342,7 +4393,7 @@ function renderTable() {
                 ${(ticket.is24Hours || (ticket.extraData && ticket.extraData.is24Hours)) ? '<span class="inline-block mt-1 px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-500/50 text-[9px] font-extrabold uppercase tracking-wider">⏱️ 24 Hours</span>' : ''}
                 ${expired24h ? '<span class="badge-24h-overdue inline-block mt-1 px-2 py-0.5 rounded bg-rose-950 text-rose-200 border border-rose-500 text-[9px] font-extrabold uppercase tracking-wider">⚠️ 24H EXPIRED — CHECK CLIENT</span>' : ''}
             </td>
-            <td class="text-center whitespace-nowrap"><span class="inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${isClosed ? 'bg-emerald-800 text-white' : 'bg-amber-950 text-amber-200 border border-amber-400'}">${escapeHtml(ticket.status || 'Closed')}</span></td>
+            <td class="text-center whitespace-nowrap"><span class="inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase ${isClosed ? 'bg-emerald-800 text-white' : 'bg-red-700 text-white border border-red-300 shadow-sm'}">${escapeHtml(ticket.status || 'Closed')}</span></td>
             <td class="font-bold text-[11px]"><div class="cell-clamp-2">${escapeHtml(ticket.remarks || '')}</div></td>
         `;
         tbody.appendChild(tr);
@@ -4867,7 +4918,7 @@ function showDuplicateWarningModal(matches, complainantName, category, ticketObj
                 <span class="font-mono font-bold text-amber-400">Record #${i + 1}: ${escapeHtml(m.referralNo || '—')}</span>
                 <span class="text-[10px] font-mono text-slate-400">${escapeHtml(m.dateReceived || '—')}</span>
             </div>
-            <div class="text-[11px] text-slate-300"><strong class="text-slate-400">Admin:</strong> ${escapeHtml(m.adminNo || '—')} • <strong class="text-slate-400">Platform:</strong> ${escapeHtml(m.platform || '—')} • <strong class="text-slate-400">Status:</strong> <span class="font-bold ${m.status === 'Closed' ? 'text-emerald-400' : 'text-amber-400'}">${escapeHtml(m.status || '—')}</span></div>
+            <div class="text-[11px] text-slate-300"><strong class="text-slate-400">Admin:</strong> ${escapeHtml(m.adminNo || '—')} • <strong class="text-slate-400">Platform:</strong> ${escapeHtml(m.platform || '—')} • <strong class="text-slate-400">Status:</strong> <span class="font-bold ${m.status === 'Closed' ? 'text-emerald-400' : 'text-red-400'}">${escapeHtml(m.status || '—')}</span></div>
             <div class="text-[11px] text-slate-300"><strong class="text-slate-400">Ticket Details:</strong> ${escapeHtml(m.ticketDetails || '—')}</div>
             <div class="text-[11px] text-slate-300"><strong class="text-slate-400">Response:</strong> ${escapeHtml(m.responseDetails || '—')}</div>
         </div>
@@ -5451,8 +5502,8 @@ function generateReport() {
     const filteredTickets = AppState.tickets.filter(t => {
         if (!t.dateReceived) return false;
         const iso = mmddyyyyToISO(t.dateReceived);
-        const tDate = new Date(iso + "T12:00:00");
-        if (tDate < startDate || tDate > endDate) return false;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+        if (iso < startISO || iso > endISO) return false;
 
         if (selectedPortals.length > 0 && !selectedPortals.some(p => p.toUpperCase() === (t.platform || '').toUpperCase())) {
             return false;
