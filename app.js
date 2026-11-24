@@ -48,32 +48,6 @@ const STANDARD_ENDORSEMENT_TEMPLATE_FIELDS = {
     ].join("\n")
 };
 
-const DEFAULT_COLUMN_LABELS = {
-    received: "Received",
-    adminNo: "ADMIN NO.",
-    platform: "PLATFORM",
-    referralNo: "REFERRAL / TICKET NO.",
-    dateReceived: "DATE RECEIVED",
-    category: "CATEGORY",
-    ticketType: "TYPE OF TICKET",
-    complainantName: "NAME OF COMPLAINANT",
-    ticketDetails: "DETAILS OF TICKET",
-    responseDetails: "DETAILS OF RESPONSE",
-    actionTaken: "ACTION TAKEN",
-    status: "STATUS",
-    remarks: "REMARKS",
-    graphTotalLabel: "TOTAL",
-    graphPlatformTitle: "Tickets by Platform",
-    graphCategoryTitle: "Tickets by Category"
-};
-
-function getColumnLabelsConfig() {
-    return {
-        ...DEFAULT_COLUMN_LABELS,
-        ...(AppState.settings?.columnLabels || {})
-    };
-}
-
 let currentUser = {
     username: "admin36",
     role: "Super Admin",
@@ -169,7 +143,6 @@ let AppState = {
         ],
         customFields: [],
         endorsementForm: { ...STANDARD_ENDORSEMENT_TEMPLATE_FIELDS },
-        columnLabels: { ...DEFAULT_COLUMN_LABELS },
         reportConfig: {
             republic: "Republic of the Philippines",
             department: "Department of Transportation",
@@ -936,11 +909,6 @@ function mergeSettingsSafely(localOrDefaultSettings, incomingSettings, preferInc
             ...(base.endorsementForm || STANDARD_ENDORSEMENT_TEMPLATE_FIELDS),
             ...(inc.endorsementForm || {})
         },
-        columnLabels: {
-            ...DEFAULT_COLUMN_LABELS,
-            ...(base.columnLabels || {}),
-            ...(inc.columnLabels || {})
-        },
         reportConfig: mergedReportCfg
     };
 
@@ -1126,24 +1094,10 @@ function setFormDateToday() {
 
 function isSuperAdmin() { return currentUser && (currentUser.role || "").toLowerCase() === "super admin"; }
 function isAdminTL() { return currentUser && ((currentUser.role || "").toLowerCase() === "admintl" || isSuperAdmin()); }
-function isAdminSV() { return currentUser && (currentUser.role || "").toLowerCase() === "adminsv"; }
-function canUserViewSupervisorStats() { return isSuperAdmin() || isAdminTL() || isAdminSV(); }
 function canUserGenerateReports() { return isSuperAdmin() || isAdminTL() || (currentUser && currentUser.canReports === true); }
-function canUserDeleteLogs() { return isSuperAdmin() || isAdminTL() || isAdminSV() || (currentUser && currentUser.canDeleteLogs === true); }
+function canUserDeleteLogs() { return isSuperAdmin() || isAdminTL() || (currentUser && currentUser.canDeleteLogs === true); }
 function canUserManageUsers() { return isSuperAdmin() || (currentUser && currentUser.canManageUsers === true); }
-function canUserAccessSettings() { return isSuperAdmin() || isAdminTL() || (currentUser && currentUser.canAccessSettings === true); }
-function canUserEditAnyTicket() { return isSuperAdmin() || isAdminTL(); }
-function canUserEditTicket(ticket) {
-    if (!ticket) return false;
-    if (canUserEditAnyTicket()) return true;
-    return isTicketOwnedByCurrentUser(ticket);
-}
-function canUserDeleteTicket(ticket) {
-    if (!ticket) return false;
-    if (isSuperAdmin() || isAdminTL()) return true;
-    if (isAdminSV() && canUserDeleteLogs()) return true;
-    return isTicketOwnedByCurrentUser(ticket);
-}
+function canUserAccessSettings() { return isSuperAdmin() || (currentUser && currentUser.canAccessSettings === true); }
 function canUserEditWorkdayOffDates() { return isSuperAdmin() || isAdminTL(); }
 function isResponderClipboardEnabled() { return AppState.settings?.enableResponderClipboard !== false; }
 
@@ -1152,7 +1106,6 @@ function updateUIPrivileges() {
     const btnDirectory = document.getElementById('tabBtnDirectory');
     const btnTemplate = document.getElementById('tabBtnTemplate');
     const btnUsers = document.getElementById('tabBtnUsers');
-    const btnSupervisor = document.getElementById('tabBtnSupervisor');
     const btnSettings = document.getElementById('tabBtnSettings');
     const btnClipboard = document.getElementById('tabBtnClipboard');
     const btnAccomplishment = document.getElementById('tabBtnAccomplishment');
@@ -1209,12 +1162,7 @@ function updateUIPrivileges() {
     if (btnDirectory) btnDirectory.style.display = hasDirectoryAccess ? 'flex' : 'none';
     if (btnTemplate) btnTemplate.style.display = hasTemplateAccess ? 'flex' : 'none';
     if (btnUsers) btnUsers.style.display = hasUserAccess ? 'flex' : 'none';
-    const hasSupervisorAccess = canUserViewSupervisorStats();
-    if (btnSupervisor) btnSupervisor.style.display = hasSupervisorAccess ? 'flex' : 'none';
-    if (btnSettings) btnSettings.style.display = (hasSettingsAccess || isAdminTL()) ? 'flex' : 'none';
-    const colCfgCard = document.getElementById('columnNamesConfigCard');
-    if (colCfgCard) colCfgCard.style.display = (isSuperAdmin() || isAdminTL()) ? 'block' : 'none';
-    loadColumnLabelsToUI();
+    if (btnSettings) btnSettings.style.display = hasSettingsAccess ? 'flex' : 'none';
 }
 
 function toggleGlobalResponderClipboard(enabled) {
@@ -1413,21 +1361,7 @@ async function pollRealtimeUpdates() {
                 saveStorage();
                 renderTable();
                 updateKPIs();
-                if (canUserViewSupervisorStats()) renderSupervisorStats();
             }
-            try {
-                const uResp = await fetch(APPS_SCRIPT_URL + "?action=getUsers&t=" + Date.now(), { mode: 'cors' });
-                if (uResp.ok) {
-                    const uJson = await uResp.json();
-                    if (Array.isArray(uJson) && JSON.stringify(uJson) !== JSON.stringify(AppState.users)) {
-                        AppState.users = uJson;
-                        localStorage.setItem('LTO_CPAO_USERS_2026', JSON.stringify(AppState.users));
-                        renderUsersTable();
-                        checkScheduledPortalAssignment();
-                        if (canUserViewSupervisorStats()) renderSupervisorStats();
-                    }
-                }
-            } catch (_) {}
             updateSyncStatusBadge("synced");
         }
     } catch (e) {
@@ -1562,7 +1496,7 @@ async function initSystem() {
     render24HourReminderBanner();
     updateSyncStatusBadge(loadPendingSyncQueue().length > 0 ? "queued" : "synced");
 
-    setInterval(pollRealtimeUpdates, 1500);
+    setInterval(pollRealtimeUpdates, 4000);
     setInterval(render24HourReminderBanner, TIMER_24H_CHECK_INTERVAL_MS);
 }
 
@@ -2286,12 +2220,11 @@ function renderModalCustomFields() {
 function renderTableHeadersAndColumns() {
     const headerRow = document.getElementById('tableHeaderRow');
     if(!headerRow) return;
-    const cols = getColumnLabelsConfig();
     headerRow.innerHTML = `
-        <th class="text-center">#</th><th class="text-center">ACTIONS</th><th>${escapeHtml(cols.adminNo)}</th><th>${escapeHtml(cols.platform)}</th>
-        <th>${escapeHtml(cols.referralNo)}</th><th>${escapeHtml(cols.dateReceived)}</th><th>${escapeHtml(cols.category)}</th><th>${escapeHtml(cols.ticketType)}</th>
-        <th>${escapeHtml(cols.complainantName)}</th><th>${escapeHtml(cols.ticketDetails)}</th><th>${escapeHtml(cols.responseDetails)}</th><th>${escapeHtml(cols.actionTaken)}</th>
-        <th class="text-center">${escapeHtml(cols.status)}</th><th>${escapeHtml(cols.remarks)}</th>
+        <th class="text-center">#</th><th class="text-center">ACTIONS</th><th>ADMIN NO.</th><th>PLATFORM</th>
+        <th>REFERRAL / TICKET NO.</th><th>DATE RECEIVED</th><th>CATEGORY</th><th>TYPE OF TICKET</th>
+        <th>NAME OF COMPLAINANT</th><th>DETAILS OF TICKET</th><th>DETAILS OF RESPONSE</th><th>ACTION TAKEN</th>
+        <th class="text-center">STATUS</th><th>REMARKS</th>
     `;
 }
 
@@ -2806,8 +2739,7 @@ async function deleteUserAccount(idx) {
         AppState.users.splice(idx, 1);
         await saveUsersStorage();
         renderUsersTable();
-        await fetchUsersFromCloud();
-        showToast("User account deleted and synced.");
+        showToast("User account deleted successfully.");
     });
 }
 
@@ -3848,10 +3780,6 @@ function openEndorseModal(index) {
     ensureDirectoryOfficialsInitialized();
     const ticket = AppState.tickets[index];
     if (!ticket) return;
-    if (!canUserDeleteTicket(ticket)) {
-        showSystemAlert("Access Restricted", "You can only delete your own ticket logs. Only Super Admin and AdminTL can delete logs of other admins.", "🔒");
-        return;
-    }
     document.getElementById('endorseTicketIndex').value = index;
 
     const sel = document.getElementById('endOfficeSelect');
@@ -4380,9 +4308,7 @@ function updateKPIs(filteredList = null) {
     const rate = total > 0 ? Math.round((closed / total) * 100) : 0;
 
     const filterDateISO = document.getElementById('filterDate')?.value || '';
-    const cols = getColumnLabelsConfig();
-    const recLabel = (cols.received && cols.received.toLowerCase() !== 'received') ? `${cols.received} Logs` : "Today's Logs";
-    document.getElementById('kpiTotalLabel').textContent = filterDateISO === getTodayISO() ? recLabel : (filterDateISO ? `Logs (${isoToMMDDYYYY(filterDateISO)})` : `All ${cols.received || 'Registered'} Logs`);
+    document.getElementById('kpiTotalLabel').textContent = filterDateISO === getTodayISO() ? "Today's Logs" : (filterDateISO ? `Logs (${isoToMMDDYYYY(filterDateISO)})` : "All Registered Logs");
     document.getElementById('kpiTotal').textContent = total;
     document.getElementById('kpiClosed').textContent = closed;
     document.getElementById('kpiPending').textContent = pending;
@@ -4426,14 +4352,6 @@ function renderTable() {
             ? `<button type="button" onclick="autoCloseTicketFromReminder(${origIndex})" title="Close Ticket (24h Timer Expired)" class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded font-bold text-[10px] shadow transition">✓ Close</button>`
             : '';
 
-        const canEditRow = canUserEditTicket(ticket);
-        const canDeleteRow = canUserDeleteTicket(ticket);
-        const editBtnHtml = canEditRow
-            ? `${editBtnHtml}`
-            : '';
-        const deleteBtnHtml = canDeleteRow
-            ? `${deleteBtnHtml}`
-            : '';
         let actionButtons = `
             <div class="flex items-center justify-center gap-1.5 flex-wrap">
                 ${autoCloseBtnHtml}
@@ -4626,10 +4544,6 @@ function openTicketModal(index = null) {
 
     if (index !== null && index !== undefined && AppState.tickets[index]) {
         const t = AppState.tickets[index];
-        if (!canUserEditTicket(t)) {
-            showSystemAlert("Access Restricted", "You can only edit your own ticket logs. Only Super Admin and AdminTL can edit logs of other admins.", "🔒");
-            return;
-        }
         editingTicketOriginalState = {
             index: index,
             rowIndex: t.rowIndex || (index + 2),
@@ -5495,7 +5409,7 @@ function buildSvgPieChart(slices, totalValue, titleText, extraCardClass = "") {
                     ${circlesHtml}
                     <circle cx="70" cy="70" r="32" fill="#f8fafc" />
                     <text x="70" y="67" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">${totalValue}</text>
-                    <text x="70" y="80" text-anchor="middle" font-size="7" font-weight="700" fill="#64748b">${escapeHtml((getColumnLabelsConfig().graphTotalLabel || "TOTAL").toUpperCase())}</text>
+                    <text x="70" y="80" text-anchor="middle" font-size="7" font-weight="700" fill="#64748b">TOTAL</text>
                 </svg>
                 <div class="flex-1 w-full divide-y divide-slate-200">
                     ${legendHtml}
@@ -6076,223 +5990,3 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
-
-
-function loadColumnLabelsToUI() {
-    const cols = getColumnLabelsConfig();
-    const map = {
-        cfgColReceived: cols.received,
-        cfgColAdminNo: cols.adminNo,
-        cfgColPlatform: cols.platform,
-        cfgColReferralNo: cols.referralNo,
-        cfgColDateReceived: cols.dateReceived,
-        cfgColCategory: cols.category,
-        cfgColTicketType: cols.ticketType,
-        cfgColComplainantName: cols.complainantName,
-        cfgColTicketDetails: cols.ticketDetails,
-        cfgColResponseDetails: cols.responseDetails,
-        cfgColActionTaken: cols.actionTaken,
-        cfgColStatus: cols.status,
-        cfgColRemarks: cols.remarks,
-        cfgGraphTotalLabel: cols.graphTotalLabel,
-        cfgGraphPlatformTitle: cols.graphPlatformTitle,
-        cfgGraphCategoryTitle: cols.graphCategoryTitle
-    };
-    Object.entries(map).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el && document.activeElement !== el) {
-            el.value = val || '';
-        }
-    });
-}
-
-async function saveColumnLabelsConfig() {
-    if (!isSuperAdmin() && !isAdminTL()) {
-        showSystemAlert("Access Denied", "Only Super Admin and AdminTL can modify column names.", "🔒");
-        return;
-    }
-    const valOrDef = (id, def) => {
-        const el = document.getElementById(id);
-        const txt = el ? el.value.trim() : '';
-        return txt || def;
-    };
-    AppState.settings.columnLabels = {
-        received: valOrDef('cfgColReceived', DEFAULT_COLUMN_LABELS.received),
-        adminNo: valOrDef('cfgColAdminNo', DEFAULT_COLUMN_LABELS.adminNo),
-        platform: valOrDef('cfgColPlatform', DEFAULT_COLUMN_LABELS.platform),
-        referralNo: valOrDef('cfgColReferralNo', DEFAULT_COLUMN_LABELS.referralNo),
-        dateReceived: valOrDef('cfgColDateReceived', DEFAULT_COLUMN_LABELS.dateReceived),
-        category: valOrDef('cfgColCategory', DEFAULT_COLUMN_LABELS.category),
-        ticketType: valOrDef('cfgColTicketType', DEFAULT_COLUMN_LABELS.ticketType),
-        complainantName: valOrDef('cfgColComplainantName', DEFAULT_COLUMN_LABELS.complainantName),
-        ticketDetails: valOrDef('cfgColTicketDetails', DEFAULT_COLUMN_LABELS.ticketDetails),
-        responseDetails: valOrDef('cfgColResponseDetails', DEFAULT_COLUMN_LABELS.responseDetails),
-        actionTaken: valOrDef('cfgColActionTaken', DEFAULT_COLUMN_LABELS.actionTaken),
-        status: valOrDef('cfgColStatus', DEFAULT_COLUMN_LABELS.status),
-        remarks: valOrDef('cfgColRemarks', DEFAULT_COLUMN_LABELS.remarks),
-        graphTotalLabel: valOrDef('cfgGraphTotalLabel', DEFAULT_COLUMN_LABELS.graphTotalLabel),
-        graphPlatformTitle: valOrDef('cfgGraphPlatformTitle', DEFAULT_COLUMN_LABELS.graphPlatformTitle),
-        graphCategoryTitle: valOrDef('cfgGraphCategoryTitle', DEFAULT_COLUMN_LABELS.graphCategoryTitle)
-    };
-    persistLocalSettingsCache();
-    renderTableHeadersAndColumns();
-    renderTable();
-    updateKPIs();
-    loadColumnLabelsToUI();
-    await saveAllSettingsToCloud(false);
-    showToast("Table and graph column names saved & synced.");
-}
-
-function resetColumnLabelsDefault() {
-    if (!isSuperAdmin() && !isAdminTL()) return;
-    AppState.settings.columnLabels = { ...DEFAULT_COLUMN_LABELS };
-    persistLocalSettingsCache();
-    loadColumnLabelsToUI();
-    renderTableHeadersAndColumns();
-    renderTable();
-    updateKPIs();
-    saveAllSettingsToCloud(false);
-    showToast("Column names reset to default.");
-}
-
-function parseTicketDateObj(dateStr) {
-    const clean = formatCleanDate(dateStr || '');
-    if (!clean) return null;
-    const parts = clean.split('/');
-    if (parts.length !== 3) return null;
-    const m = parseInt(parts[0], 10) - 1;
-    const d = parseInt(parts[1], 10);
-    const y = parseInt(parts[2], 10);
-    const dt = new Date(y, m, d);
-    return isNaN(dt.getTime()) ? null : dt;
-}
-
-function getPeriodBounds(period, refDate = new Date()) {
-    const y = refDate.getFullYear();
-    const m = refDate.getMonth();
-    const d = refDate.getDate();
-    const startOfToday = new Date(y, m, d, 0, 0, 0, 0);
-    const endOfToday = new Date(y, m, d, 23, 59, 59, 999);
-
-    if (period === 'daily') {
-        return { start: startOfToday, end: endOfToday, label: `Daily (${isoToMMDDYYYY(getTodayISO())})` };
-    }
-    if (period === 'weekly') {
-        const dayOfWeek = startOfToday.getDay(); // 0=Sun..6=Sat
-        const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const weekStart = new Date(y, m, d + diffToMon, 0, 0, 0, 0);
-        const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6, 23, 59, 59, 999);
-        return { start: weekStart, end: weekEnd, label: "Weekly (Mon – Sun)" };
-    }
-    if (period === 'monthly') {
-        const monthStart = new Date(y, m, 1, 0, 0, 0, 0);
-        const monthEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
-        return { start: monthStart, end: monthEnd, label: `Monthly (${refDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })})` };
-    }
-    const yearStart = new Date(y, 0, 1, 0, 0, 0, 0);
-    const yearEnd = new Date(y, 11, 31, 23, 59, 59, 999);
-    return { start: yearStart, end: yearEnd, label: `Annual (${y})` };
-}
-
-function isTicketInBounds(ticket, bounds) {
-    const dt = parseTicketDateObj(ticket.dateReceived);
-    if (!dt) return false;
-    return dt >= bounds.start && dt <= bounds.end;
-}
-
-function computePeriodStats(tickets, period) {
-    const bounds = getPeriodBounds(period);
-    const list = tickets.filter(t => isTicketInBounds(t, bounds));
-    const total = list.length;
-    const answered = list.filter(t => String(t.status || '').toLowerCase() === 'closed').length;
-    const pending = total - answered;
-    const rate = total > 0 ? Math.round((answered / total) * 100) : 0;
-    return { total, answered, pending, rate, label: bounds.label, list };
-}
-
-function renderSupervisorStats() {
-    const tbody = document.getElementById('supervisorStatsTableBody');
-    if (!tbody) return;
-
-    const period = document.getElementById('supPeriodSelect')?.value || 'daily';
-    const tickets = Array.isArray(AppState.tickets) ? AppState.tickets : [];
-
-    const dailyStat = computePeriodStats(tickets, 'daily');
-    const weeklyStat = computePeriodStats(tickets, 'weekly');
-    const monthlyStat = computePeriodStats(tickets, 'monthly');
-    const annualStat = computePeriodStats(tickets, 'annual');
-
-    const selectedStat = period === 'weekly' ? weeklyStat
-        : period === 'monthly' ? monthlyStat
-        : period === 'annual' ? annualStat
-        : dailyStat;
-
-    const adminKeys = new Set();
-    (AppState.users || []).forEach(u => {
-        const label = (u.adminNo || deriveOperatorAdminNo(u) || u.name || u.username || '').trim();
-        if (label) adminKeys.add(label);
-    });
-    tickets.forEach(t => {
-        const label = String(t.adminNo || '').trim();
-        if (label) adminKeys.add(label);
-    });
-
-    const sortedAdmins = Array.from(adminKeys).sort((a, b) => a.localeCompare(b));
-
-    const setElText = (id, txt) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = txt;
-    };
-
-    setElText('supKpiTotal', selectedStat.total);
-    setElText('supKpiAnswered', selectedStat.answered);
-    setElText('supKpiPending', selectedStat.pending);
-    setElText('supKpiRate', `${selectedStat.rate}%`);
-    setElText('supKpiAdmins', sortedAdmins.length);
-
-    setElText('supSummaryDaily', `${dailyStat.total} Logs • ${dailyStat.rate}% Rate (${dailyStat.answered} Answered)`);
-    setElText('supSummaryWeekly', `${weeklyStat.total} Logs • ${weeklyStat.rate}% Rate (${weeklyStat.answered} Answered)`);
-    setElText('supSummaryMonthly', `${monthlyStat.total} Logs • ${monthlyStat.rate}% Rate (${monthlyStat.answered} Answered)`);
-    setElText('supSummaryAnnual', `${annualStat.total} Logs • ${annualStat.rate}% Rate (${annualStat.answered} Answered)`);
-    setElText('supPeriodLabel', selectedStat.label);
-
-    const dBounds = getPeriodBounds('daily');
-    const wBounds = getPeriodBounds('weekly');
-    const mBounds = getPeriodBounds('monthly');
-    const aBounds = getPeriodBounds('annual');
-    const selBounds = getPeriodBounds(period);
-
-    tbody.innerHTML = '';
-    if (sortedAdmins.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 text-xs">No admin log statistics available yet.</td></tr>`;
-        return;
-    }
-
-    sortedAdmins.forEach(adminLabel => {
-        const targetLower = adminLabel.toLowerCase();
-        const adminTickets = tickets.filter(t => String(t.adminNo || '').trim().toLowerCase() === targetLower);
-
-        const dCount = adminTickets.filter(t => isTicketInBounds(t, dBounds)).length;
-        const wCount = adminTickets.filter(t => isTicketInBounds(t, wBounds)).length;
-        const mCount = adminTickets.filter(t => isTicketInBounds(t, mBounds)).length;
-        const aCount = adminTickets.filter(t => isTicketInBounds(t, aBounds)).length;
-
-        const selTickets = adminTickets.filter(t => isTicketInBounds(t, selBounds));
-        const selAnswered = selTickets.filter(t => String(t.status || '').toLowerCase() === 'closed').length;
-        const selPending = selTickets.length - selAnswered;
-        const selRate = selTickets.length > 0 ? Math.round((selAnswered / selTickets.length) * 100) : 0;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="font-bold text-white">${escapeHtml(adminLabel)}</td>
-            <td class="text-center font-mono text-slate-200">${dCount}</td>
-            <td class="text-center font-mono text-slate-200">${wCount}</td>
-            <td class="text-center font-mono text-slate-200">${mCount}</td>
-            <td class="text-center font-mono text-slate-200">${aCount}</td>
-            <td class="text-center font-mono font-bold text-emerald-400">${selAnswered}</td>
-            <td class="text-center font-mono font-bold text-amber-400">${selPending}</td>
-            <td class="text-center font-mono font-extrabold text-sky-400">${selRate}%</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
