@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LTO PAT/SMT Logs System — CPAO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        (function() {
+            try {
+                const activeUser = sessionStorage.getItem('LTO_ACTIVE_USER');
+                if (!activeUser) {
+                    window.location.replace('login.html');
+                }
+            } catch (e) {
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none sm:select-auto">
+
+    <!-- TOP HEADER -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 no-print">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-extrabold text-amber-400 text-sm">LTO</div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-extrabold text-sm sm:text-base tracking-tight text-white">PAT/SMT LOGS SYSTEM</h1>
+                    <span id="userRoleBadge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">ADMIN</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Public Assistance &amp; Telecommunications / Social Media Tracking Log Sheet</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <span id="syncStatusBadge" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-semibold text-emerald-400">✅ Cloud: Synchronized</span>
+            <button type="button" onclick="fetchAllCloudData()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1.5"><span>🔄</span> Sync Cloud</button>
+            <a id="btnOpenBackendSheet" href="https://docs.google.com/spreadsheets/d/1iZRRQhjPTGnXxBp9DsvEzB5BCkCLtBEMV3O2cuwy2ZU/edit?gid=481048906#gid=481048906" target="_blank" rel="noopener noreferrer" style="display: none;" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg shadow transition items-center gap-1.5"><span>📊</span> Google Sheets</a>
+            <button type="button" onclick="openMyAccountModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition flex items-center gap-1.5"><span>⚙️</span> Account</button>
+            <button type="button" onclick="openLogoutModal()" class="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-lg border border-rose-800/60 transition flex items-center gap-1.5"><span>🚪</span> Logout</button>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="bg-slate-950 border-b border-slate-800 px-4 flex items-center gap-2 overflow-x-auto text-xs font-bold no-print">
+        <button type="button" id="tabBtnLogs" onclick="switchMainTab('logs')" class="px-4 py-2.5 border-b-2 text-sky-400 border-sky-400 whitespace-nowrap transition">📋 PAT/SMT Logs Sheet</button>
+        <button type="button" id="tabBtnAccomplishment" onclick="switchMainTab('accomplishment')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📑 Accomplishment Report</button>
+        <button type="button" id="tabBtnReports" style="display: none;" onclick="switchMainTab('reports')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📊 Reports Generator</button>
+        <button type="button" id="tabBtnWorkflow" onclick="switchMainTab('workflow')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">⚡ CPAO Workflow Engine</button>
+        <button type="button" id="tabBtnClipboard" onclick="switchMainTab('clipboard')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">💬 Responder Clipboard</button>
+        <button type="button" id="tabBtnWorkday" onclick="switchMainTab('workday')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📅 Workday Calculator</button>
+        <button type="button" id="tabBtnDirectory" style="display: none;" onclick="switchMainTab('directory')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📇 LTO Directory</button>
+        <button type="button" id="tabBtnTemplate" style="display: none;" onclick="switchMainTab('template')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">📝 Endorsement Template</button>
+        <button type="button" id="tabBtnUsers" style="display: none;" onclick="switchMainTab('users')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">👥 User Accounts</button>
+        <button type="button" id="tabBtnSettings" style="display: none;" onclick="switchMainTab('settings')" class="px-4 py-2.5 border-b-2 text-slate-400 border-transparent whitespace-nowrap transition">⚙️ Superadmin Settings</button>
+    </nav>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 p-4 flex flex-col overflow-hidden">
+
+        <!-- VIEW 1: LOGS SHEET -->
+        <div id="viewLogs" class="flex-1 flex flex-col space-y-3 overflow-hidden">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 shrink-0">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                        <span id="kpiTotalLabel" class="text-[10px] font-bold uppercase text-slate-400 block">Today's Logs</span>
+                        <span id="kpiTotal" class="text-xl font-extrabold text-white">0</span>
+                    </div>
+                    <span class="p-2 bg-slate-800 rounded-lg text-sm">📋</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-400 block">Closed / Resolved</span>
+                        <span id="kpiClosed" class="text-xl font-extrabold text-emerald-400">0</span>
+                    </div>
+                    <span class="p-2 bg-emerald-950/60 border border-emerald-800/40 rounded-lg text-sm">✅</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-400 block">Pending / Endorsed</span>
+                        <span id="kpiPending" class="text-xl font-extrabold text-amber-400">0</span>
+                    </div>
+                    <span class="p-2 bg-amber-950/60 border border-amber-800/40 rounded-lg text-sm">⏳</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-400 block">Resolution Efficiency</span>
+                        <span id="kpiRate" class="text-xl font-extrabold text-amber-400">0%</span>
+                    </div>
+                    <span class="p-2 bg-slate-800 rounded-lg text-sm">📈</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between col-span-2 sm:col-span-1">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-400 block">Active Operator</span>
+                        <span id="activeOperatorName" class="text-sm font-extrabold text-white">Admin 42</span>
+                    </div>
+                    <span class="p-2 bg-slate-800 rounded-lg text-sm">👤</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <button type="button" id="btnLogTicket" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold rounded-lg shadow transition whitespace-nowrap">+ Log New</button>
+                    <input type="text" id="searchInput" oninput="renderTable()" placeholder="🔍 Search ticket #, complainant, email..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white w-52 sm:w-64 focus:outline-none focus:border-sky-500">
+                    
+                    <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">View Scope:</span>
+                        <select id="superadminViewScope" onchange="renderTable()" class="bg-transparent text-amber-400 font-bold focus:outline-none">
+                            <option value="my" class="bg-slate-900">My Logs Only</option>
+                            <option value="all" class="bg-slate-900">All Team Logs</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Date:</span>
+                        <input type="text" id="filterDateDisplay" readonly onclick="openSystemDatePicker('filterDate', this)" placeholder="MM/DD/YYYY" class="bg-transparent text-amber-400 font-mono font-bold focus:outline-none text-xs cursor-pointer w-24"><input type="hidden" id="filterDate" onchange="renderTable()">
+                        <button type="button" onclick="setFilterDateToday()" class="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold">Today</button>
+                        <button type="button" onclick="clearDateFilter()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold">All</button>
+                    </div>
+
+                    <select id="filterPlatform" onchange="renderTable()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold"></select>
+                    <select id="filterStatus" onchange="renderTable()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold"></select>
+                    <button type="button" onclick="resetFiltersToToday()" class="text-xs text-slate-400 hover:text-white underline px-1">Reset</button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btnDeleteDateLogs" style="display: none;" onclick="openDeleteLogsModal()" class="px-3 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-bold rounded-lg transition">🗑️ Delete By Date</button>
+                    <button type="button" onclick="exportCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-lg transition">📥 Export CSV</button>
+                </div>
+            </div>
+
+            <!-- 24-HOUR WORKING TIMER EXPIRATION REMINDER BANNER -->
+            <div id="reminder24hBanner" class="hidden bg-amber-950/50 border border-amber-500/60 rounded-xl p-3 space-y-2 shadow-lg shrink-0">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-extrabold text-amber-300 uppercase tracking-wide">⏰ 24-Hour Working Timer Expired — Check Client Response &amp; Auto-Close</span>
+                    <span class="text-[10px] text-amber-200/80 font-mono">Working Days Aware</span>
+                </div>
+                <div id="reminder24hList" class="space-y-2"></div>
+            </div>
+
+            <!-- ISOLATED SCROLL CONTAINER FOR LOGSHEET -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-auto max-h-[60vh] flex-1">
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-300 sticky top-0 z-10 border-b border-slate-800">
+                        <tr id="tableHeaderRow" class="[&>th]:p-2.5 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase [&>th]:tracking-wider [&>th]:whitespace-nowrap"></tr>
+                    </thead>
+                    <tbody id="logTableBody" class="divide-y divide-slate-800/60 [&>tr>td]:p-2.5"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VIEW 1B: ACCOMPLISHMENT REPORT (FOR ALL ADMIN ACCOUNTS) -->
+        <div id="viewAccomplishment" class="hidden flex-col space-y-3 overflow-hidden">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3 no-print shrink-0">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div class="flex items-end gap-3 flex-wrap">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Start Date</label>
+                            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden focus-within:border-sky-500"><input type="text" id="accStartDateDisplay" readonly onclick="openSystemDatePicker('accStartDate', this)" placeholder="MM/DD/YYYY" class="bg-transparent px-3 py-2 text-xs text-white font-mono cursor-pointer focus:outline-none w-28"><button type="button" onclick="openSystemDatePicker('accStartDate', this)" class="px-2 py-2 bg-slate-900 hover:bg-slate-800 text-sky-400 border-l border-slate-800 text-xs">📅</button><input type="hidden" id="accStartDate" onchange="generateAccomplishmentReport()"></div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">End Date</label>
+                            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden focus-within:border-sky-500"><input type="text" id="accEndDateDisplay" readonly onclick="openSystemDatePicker('accEndDate', this)" placeholder="MM/DD/YYYY" class="bg-transparent px-3 py-2 text-xs text-white font-mono cursor-pointer focus:outline-none w-28"><button type="button" onclick="openSystemDatePicker('accEndDate', this)" class="px-2 py-2 bg-slate-900 hover:bg-slate-800 text-sky-400 border-l border-slate-800 text-xs">📅</button><input type="hidden" id="accEndDate" onchange="generateAccomplishmentReport()"></div>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <button type="button" onclick="setAccomplishmentPreset('today')" class="px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold rounded-lg">Today</button>
+                            <button type="button" onclick="setAccomplishmentPreset('1st_cutoff')" class="px-3 py-2 bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold rounded-lg">1st Cutoff (1–15)</button>
+                            <button type="button" onclick="setAccomplishmentPreset('2nd_cutoff')" class="px-3 py-2 bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold rounded-lg">2nd Cutoff (16–End)</button>
+                            <button type="button" onclick="setAccomplishmentPreset('weekly')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">Weekly</button>
+                            <button type="button" onclick="setAccomplishmentPreset('monthly')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">This Month</button>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-amber-400 mb-1">Admin / Operator</label>
+                            <select id="accAdminScope" onchange="generateAccomplishmentReport()" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-bold">
+                                <option value="my">My Accomplishment Only</option>
+                                <option value="all">All Admins Combined</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span id="accEditModeBadge" class="hidden px-2 py-1 rounded bg-amber-950 text-amber-300 border border-amber-500/50 text-[10px] font-extrabold uppercase">Editing Mode</span>
+                        <button type="button" id="btnToggleEditAccPreview" onclick="toggleEditAccomplishmentPreview()" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg shadow transition">✏️ Edit Report</button>
+                        <button type="button" onclick="generateAccomplishmentReport()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">Generate Report</button>
+                        <button type="button" onclick="printAccomplishmentReport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow">🖨️ Print / PDF</button>
+                    </div>
+                </div>
+
+                <!-- ADD ACCOMPLISHMENT FORM -->
+                <div class="pt-3 border-t border-slate-800 grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+                    <form onsubmit="saveCustomAccomplishment(event)" class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2.5 text-xs">
+                        <div class="flex items-center justify-between">
+                            <span id="accFormHeaderLabel" class="font-extrabold text-[11px] uppercase text-emerald-400">➕ Add Accomplishment (Auto-inserted after Portal Ticket List)</span>
+                            <button type="button" id="btnCancelEditAccItem" onclick="cancelEditCustomAccomplishment()" class="hidden text-[10px] text-rose-400 underline">Cancel Edit</button>
+                        </div>
+                        <input type="hidden" id="editCustomAccIndex">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div class="sm:col-span-2">
+                                <input type="text" id="customAccTitleInput" required placeholder="Enter accomplishment item (e.g., Coordinated with Region 4-A regarding pending endorsements...)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <div class="flex gap-2">
+                                <div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg overflow-hidden w-full"><input type="text" id="customAccDateInputDisplay" readonly onclick="openSystemDatePicker('customAccDateInput', this)" placeholder="MM/DD/YYYY" class="w-full bg-transparent px-2.5 py-2 text-xs text-amber-300 font-mono cursor-pointer focus:outline-none"><button type="button" onclick="openSystemDatePicker('customAccDateInput', this)" class="px-2 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 border-l border-slate-700 text-xs">📅</button><input type="hidden" id="customAccDateInput"></div>
+                                <button type="submit" id="btnSaveCustomAcc" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg shadow whitespace-nowrap transition">+ Add Accomplishment</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2 text-xs max-h-32 overflow-y-auto">
+                        <span class="block font-extrabold text-[10px] uppercase text-slate-400">Added Accomplishments (Edit / Remove)</span>
+                        <div id="customAccomplishmentsManageList" class="space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ISOLATED SCROLL CONTAINER FOR ACCOMPLISHMENT REPORT PREVIEW -->
+            <div id="accomplishmentReportContainer" class="bg-slate-950 border border-slate-800 rounded-xl p-6 max-h-[62vh] overflow-y-auto">
+                <div class="text-center py-16 text-slate-500 text-xs">Loading Accomplishment Report preview...</div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: REPORTS GENERATOR (ISOLATED CONTAINER + FILTERS + GRAPH TYPE + MULTI-SELECT / HIDE EMPTY) -->
+        <div id="viewReports" class="hidden flex-col space-y-3 overflow-hidden">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3 no-print shrink-0">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div class="flex items-end gap-3 flex-wrap">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Start Date</label>
+                            <div class="relative flex items-center">
+                                <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden focus-within:border-sky-500"><input type="text" id="repStartDateDisplay" readonly onclick="openSystemDatePicker('repStartDate', this)" placeholder="MM/DD/YYYY" class="bg-transparent px-3 py-2 text-xs text-white font-mono cursor-pointer focus:outline-none w-28"><button type="button" onclick="openSystemDatePicker('repStartDate', this)" class="px-2 py-2 bg-slate-900 hover:bg-slate-800 text-sky-400 border-l border-slate-800 text-xs">📅</button><input type="hidden" id="repStartDate" onchange="generateReport()"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">End Date</label>
+                            <div class="relative flex items-center">
+                                <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden focus-within:border-sky-500"><input type="text" id="repEndDateDisplay" readonly onclick="openSystemDatePicker('repEndDate', this)" placeholder="MM/DD/YYYY" class="bg-transparent px-3 py-2 text-xs text-white font-mono cursor-pointer focus:outline-none w-28"><button type="button" onclick="openSystemDatePicker('repEndDate', this)" class="px-2 py-2 bg-slate-900 hover:bg-slate-800 text-sky-400 border-l border-slate-800 text-xs">📅</button><input type="hidden" id="repEndDate" onchange="generateReport()"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="setReportPreset('weekly')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">Weekly</button>
+                            <button type="button" onclick="setReportPreset('monthly')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">This Month</button>
+                            <button type="button" onclick="setReportPreset('semiannual')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">Semi-Annual</button>
+                            <button type="button" onclick="setReportPreset('annual')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">Annual</button>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-amber-400 mb-1">Prepared By Signatory</label>
+                            <select id="repPreparedBySelect" onchange="generateReport()" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-semibold">
+                                <option value="0">Janzen Huwee N. Baltores — Public Relations Officer I</option>
+                                <option value="1">Jhovan Japhet C. Talledo — Public Relations Officer I</option>
+                                <option value="2">Michelle B. Llanera — Public Relations Officer II</option>
+                                <option value="all">All Three Officers (Joint Signatories)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span id="reportEditModeBadge" class="hidden px-2 py-1 rounded bg-amber-950 text-amber-300 border border-amber-500/50 text-[10px] font-extrabold uppercase">Editing Mode</span>
+                        <button type="button" id="btnToggleEditReportPreview" onclick="toggleEditReportPreview()" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg shadow transition">✏️ Edit Report</button>
+                        <button type="button" onclick="generateReport()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">Generate Report</button>
+                        <button type="button" onclick="openReportConfigModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">⚙️ Configure Header</button>
+                        <button type="button" onclick="printReport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow">🖨️ Print / PDF</button>
+                        <button type="button" onclick="exportReportCSV()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">📥 CSV</button>
+                    </div>
+                </div>
+
+                <!-- SPECIFIC PORTAL / CATEGORY (MULTI-SELECT) + GRAPH TYPE + HIDE EMPTY CARDS -->
+                <div class="pt-3 border-t border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-3 text-xs items-start">
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-sky-400 mb-1">Portal Filter (Multi-Select)</label>
+                        <select id="repFilterPortal" multiple size="3" onchange="generateReport()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white font-semibold focus:outline-none focus:border-sky-500"></select>
+                        <button type="button" onclick="clearReportMultiSelect('repFilterPortal')" class="mt-1 text-[10px] text-slate-400 hover:text-white underline">All Portals (Clear)</button>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-amber-400 mb-1">Category Filter (Multi-Select)</label>
+                        <select id="repFilterCategory" multiple size="3" onchange="generateReport()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white font-semibold focus:outline-none focus:border-sky-500"></select>
+                        <button type="button" onclick="clearReportMultiSelect('repFilterCategory')" class="mt-1 text-[10px] text-slate-400 hover:text-white underline">All Categories (Clear)</button>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-emerald-400 mb-1">Graph Type Selection</label>
+                        <select id="repGraphTypeSelect" onchange="generateReport()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold focus:outline-none focus:border-sky-500">
+                            <option value="all">Bar &amp; Pie Graphs</option>
+                            <option value="bar">Bar Graphs Only</option>
+                            <option value="pie">Pie Graphs Only</option>
+                            <option value="none">No Graphs (Tables Only)</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 space-y-1.5">
+                        <label class="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+                            <input type="checkbox" id="repHideEmptyCards" checked onchange="generateReport()" class="rounded border-slate-700 bg-slate-900 text-sky-500">
+                            <span>Hide Empty Chart / Group Cards</span>
+                        </label>
+                        <p class="text-[10px] text-slate-400">Itinatago ang mga chart cards o groups na walang data sa napiling filter/petsa.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SARILING SCROLL CONTAINER NG REPORT GENERATOR -->
+            <div id="reportResultsContainer" class="bg-slate-950 border border-slate-800 rounded-xl p-6 max-h-[62vh] overflow-y-auto">
+                <div class="text-center py-20 text-slate-500 text-xs">Select date range and click <strong>Generate Report</strong> above to view full preview.</div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: WORKFLOW ENGINE -->
+        <div id="viewWorkflow" class="flex-1 hidden flex-col space-y-4">
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-xl space-y-4">
+                <h2 class="font-extrabold text-sm text-white uppercase tracking-wider">⚡ ARTA / CPAO Ticket Classification SLA Engine</h2>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Select Ticket Classification:</label>
+                    <select id="wfType" onchange="runWorkflow()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white">
+                        <option value="Simple">Simple Transaction (3 Working Days)</option>
+                        <option value="Complex">Complex Transaction (7 Working Days)</option>
+                        <option value="Highly Technical">Highly Technical / Endorsement (20 Working Days)</option>
+                    </select>
+                </div>
+                <div id="wfOutput" class="p-3 bg-slate-950 border border-sky-800/50 rounded-lg text-xs font-bold text-sky-400">Due Limit: 3 Working Days</div>
+            </div>
+        </div>
+
+        <!-- VIEW 4: CLIPBOARD -->
+        <div id="viewClipboard" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div id="snippetsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- VIEW 5: WORKDAY CALCULATOR -->
+        <div id="viewWorkday" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="font-extrabold text-sm text-white uppercase">📅 ARTA Turnaround Deadline Calculator</h3>
+                        <span id="offDatesCountBadge" class="px-2.5 py-1 rounded-full bg-rose-950/80 border border-rose-800/60 text-[10px] font-bold text-rose-300">0 Off Dates Saved</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="relative">
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Date Received</label>
+                            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden focus-within:border-sky-500">
+                                <input type="text" id="calcStartDateDisplay" readonly onclick="toggleCalcSystemDatePicker()" placeholder="MM/DD/YYYY" class="w-full bg-transparent px-2.5 py-2 text-xs text-amber-400 font-mono font-bold cursor-pointer focus:outline-none">
+                                <input type="hidden" id="calcStartDate">
+                                <button type="button" onclick="toggleCalcSystemDatePicker()" title="Open System Date Picker" class="px-2.5 py-2 bg-slate-900 hover:bg-slate-800 text-sky-400 border-l border-slate-800 text-xs font-bold transition">📅</button>
+                            </div>
+
+                            <!-- SYSTEM-THEMED DATE PICKER POPUP -->
+                            <div id="calcSystemDatePickerPopup" class="hidden absolute left-0 top-full mt-1.5 w-72 bg-slate-900 border border-sky-500/40 rounded-xl shadow-2xl p-3 z-40 text-xs space-y-2.5">
+                                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                    <button type="button" onclick="changePickerMonth(-1)" class="px-2 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-slate-200 font-bold">◀</button>
+                                    <span id="pickerMonthYearLabel" class="font-extrabold text-xs text-white uppercase tracking-wide">November 2026</span>
+                                    <button type="button" onclick="changePickerMonth(1)" class="px-2 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-slate-200 font-bold">▶</button>
+                                </div>
+                                <div id="pickerCalendarDays" class="grid grid-cols-7 gap-1 text-center"></div>
+                                <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+                                    <button type="button" onclick="selectCalcPickerToday()" class="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold">Today</button>
+                                    <button type="button" onclick="closeCalcSystemDatePicker()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Working Days</label>
+                            <select id="calcDays" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white">
+                                <option value="3">3 Working Days (Simple)</option>
+                                <option value="7">7 Working Days (Complex)</option>
+                                <option value="20">20 Working Days (Highly Technical)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="runWorkdayCalculator()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow transition">Calculate Deadline</button>
+                        <button type="button" id="btnResetOffDates" onclick="clearAllOffDates()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-lg transition">Reset Off Dates</button>
+                    </div>
+                    <div id="calcResults" class="p-3 bg-slate-950 border border-emerald-800/50 rounded-lg text-xs font-bold text-emerald-400">Target Resolution Date: —</div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">Saved Non-Working / Off Dates</span>
+                            <span id="offDatesToggleHint" class="text-[10px] text-slate-500">Click calendar days to toggle On/Off</span>
+                        </div>
+                        <div id="savedOffDatesList" class="flex flex-wrap gap-1.5 text-[11px]"></div>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 id="calcMonthLabel" class="font-bold text-xs text-white uppercase">May 2026</h4>
+                        <div class="flex gap-1">
+                            <button type="button" onclick="changeCalcMonth(-1)" class="px-2 py-1 bg-slate-800 rounded text-xs">◀</button>
+                            <button type="button" onclick="changeCalcMonth(1)" class="px-2 py-1 bg-slate-800 rounded text-xs">▶</button>
+                        </div>
+                    </div>
+                    <div id="calcCalendarGrid" class="grid grid-cols-7 gap-1 text-center"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 6: LTO DIRECTORY -->
+        <div id="viewDirectory" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                    <h2 class="font-extrabold text-sm text-white uppercase">📇 LTO Regional Directory (Regions 1–NIR)</h2>
+                    <p class="text-[11px] text-slate-400">Click Edit on a region row to open its full Officials page (Regional Director, Asst. RD, Chiefs).</p>
+                </div>
+                <button type="button" onclick="openDirectoryModal(null)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow">+ Add Region / Office</button>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-auto">
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
+                        <tr class="[&>th]:p-3 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase">
+                            <th>Region / Office (1–NIR)</th>
+                            <th>Agency Code</th>
+                            <th>Name of Chief</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="directoryTableBody" class="divide-y divide-slate-800 [&>tr>td]:p-3"></tbody>
+                </table>
+            </div>
+
+            <div id="directorySelectedDetailsSection" class="bg-slate-900 border border-sky-500/30 rounded-xl overflow-hidden space-y-0">
+                <div class="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                    <span id="selectedRegionDetailsTitle" class="font-extrabold text-xs text-sky-400 uppercase tracking-wide">Selected Region Directory Details</span>
+                    <span class="text-[10px] text-slate-400 font-semibold">Click Edit on any region above to open its Officials page</span>
+                </div>
+                <div class="overflow-auto">
+                    <table class="w-full border-collapse text-left text-xs">
+                        <thead class="bg-slate-950/80 text-slate-300 border-b border-slate-800">
+                            <tr class="[&>th]:p-3 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase [&>th]:whitespace-nowrap">
+                                <th>Agency Code</th>
+                                <th>Name of Office / Region</th>
+                                <th>Name of Chief</th>
+                                <th>Designation / Position</th>
+                                <th>Office Address</th>
+                                <th>Official Number</th>
+                                <th>Official Email</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="directoryDetailTableBody" class="divide-y divide-slate-800 [&>tr>td]:p-3"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 6B: SEPARATE PAGE FOR REGION OFFICIALS -->
+        <div id="viewDirectoryOfficials" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div class="flex items-center justify-between gap-2 flex-wrap bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <button type="button" onclick="backToDirectoryFromOfficials()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg border border-slate-700 transition">← Back to LTO Directory</button>
+                    <div>
+                        <h2 id="regionOfficialsPageTitle" class="font-extrabold text-sm text-white uppercase">👔 Regional Officials Directory</h2>
+                        <p id="regionOfficialsPageSubtitle" class="text-[11px] text-slate-400">List of Regional Director, Asst. RD, and Chiefs for this region.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" onclick="openDirectoryModal(activeOfficialsRegionIndex)" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-bold rounded-lg transition">✏️ Edit Region Info</button>
+                    <button type="button" onclick="openOfficialModal(null)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow">+ Add Official</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-auto">
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
+                        <tr class="[&>th]:p-3 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase [&>th]:whitespace-nowrap">
+                            <th>Role / Rank</th>
+                            <th>Chief / Director Name</th>
+                            <th>Designation / Position</th>
+                            <th>Office / Division</th>
+                            <th>Official Email</th>
+                            <th>Contact Number</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="regionOfficialsTableBody" class="divide-y divide-slate-800 [&>tr>td]:p-3"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VIEW 7: ENDORSEMENT TEMPLATE MANAGEMENT -->
+        <div id="viewTemplate" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                    <h2 class="font-extrabold text-sm text-white uppercase">📝 Formal Endorsement Letter Template Editor (Form-Based)</h2>
+                    <p class="text-[11px] text-slate-400">Edit standard endorsement fields as a message form. Ticket details are automatically filled in when clicking Endorse.</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" onclick="resetDefaultEndorsementTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg">Reset Default</button>
+                    <button type="button" onclick="saveEndorsementTemplate()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">💾 Save Template</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3 overflow-y-auto max-h-[72vh] text-xs">
+                    <div class="flex items-center justify-between gap-2 flex-wrap border-b border-slate-800 pb-2">
+                        <span class="text-[10px] font-extrabold uppercase text-amber-400">Insert Ticket Field Token into Focused Input:</span>
+                        <div class="flex flex-wrap gap-1">
+                            <button type="button" onclick="insertTemplateToken('{todayDate}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Letter Date</button>
+                            <button type="button" onclick="insertTemplateToken('{chiefName}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Chief Name</button>
+                            <button type="button" onclick="insertTemplateToken('{chiefLastName}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Last Name</button>
+                            <button type="button" onclick="insertTemplateToken('{chiefPosition}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Position</button>
+                            <button type="button" onclick="insertTemplateToken('{officeName}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Region / Office</button>
+                            <button type="button" onclick="insertTemplateToken('{officeAddress}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Address</button>
+                            <button type="button" onclick="insertTemplateToken('{rdmpaoEmail}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ RDMPAO Email</button>
+                            <button type="button" onclick="insertTemplateToken('{complainantName}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Complainant</button>
+                            <button type="button" onclick="insertTemplateToken('{complainantEmail}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Complainant Email</button>
+                            <button type="button" onclick="insertTemplateToken('{platform}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Platform</button>
+                            <button type="button" onclick="insertTemplateToken('{dateReceivedFormatted}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Date Received</button>
+                            <button type="button" onclick="insertTemplateToken('{dueDate}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Due Date</button>
+                            <button type="button" onclick="insertTemplateToken('{ticketRefNo}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded font-mono text-[10px]">+ Ticket Ref #</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Letter Date</label>
+                            <input type="text" id="tplFormDate" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Salutation</label>
+                            <input type="text" id="tplFormSalutation" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Opening Endorsement Paragraph</label>
+                        <textarea id="tplFormOpening" rows="3" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white leading-relaxed focus:outline-none focus:border-sky-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Show Cause Order Paragraph (Shown for Traffic Violations)</label>
+                        <textarea id="tplFormShowCause" rows="3" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white leading-relaxed focus:outline-none focus:border-sky-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">RA 11032 (20 Working Days) Paragraph</label>
+                        <textarea id="tplFormDeadline" rows="3" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white leading-relaxed focus:outline-none focus:border-sky-500"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Furnished Copy &amp; Closing Action Paragraph</label>
+                        <textarea id="tplFormFurnishedReq" rows="3" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white leading-relaxed focus:outline-none focus:border-sky-500"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Complimentary Close</label>
+                            <input type="text" id="tplFormClosing" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Signatory Title</label>
+                            <input type="text" id="tplFormSigTitle" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Signatory Office</label>
+                            <input type="text" id="tplFormSigOffice" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-amber-400 mb-1">Copy Furnished (One per line: Title | Subtitle | Email)</label>
+                        <textarea id="tplFormCopyFurnished" rows="3" oninput="syncFormTemplateFields()" class="tpl-form-field w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-[11px]"></textarea>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+                    <h3 class="font-bold text-xs text-emerald-400 uppercase">Live Template Preview</h3>
+                    <div id="templateLivePreview" class="bg-white text-slate-900 p-4 rounded-lg text-[11px] leading-relaxed max-h-[66vh] overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 8: USER ACCOUNTS -->
+        <div id="viewUsers" class="flex-1 hidden flex-col space-y-4 overflow-hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="font-extrabold text-sm text-white uppercase">👥 System User Accounts &amp; Role Privileges</h2>
+                <button type="button" onclick="openUserModal(null)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow">+ Add New User</button>
+            </div>
+            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl overflow-auto">
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
+                        <tr class="[&>th]:p-3 [&>th]:font-extrabold [&>th]:text-[10px] [&>th]:uppercase">
+                            <th>Username</th><th>Operator Name</th><th>Role</th><th>Assigned Portal</th><th>Privileges</th><th>Row Color</th><th>Password</th><th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody" class="divide-y divide-slate-800 [&>tr>td]:p-3"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VIEW 9: SUPERADMIN SETTINGS -->
+        <div id="viewSettings" class="flex-1 hidden flex-col space-y-4 overflow-y-auto">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <h2 class="font-extrabold text-sm text-white uppercase">⚙️ System Dropdowns &amp; Portal Configurations</h2>
+                <button type="button" onclick="saveAllSettingsToCloud()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">💾 Save All Settings to Cloud</button>
+            </div>
+
+            <!-- GLOBAL FEATURE PRIVILEGE CONTROL (RESPONDER CLIPBOARD TOGGLE) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 class="font-extrabold text-xs text-sky-400 uppercase tracking-wide">💬 Responder Clipboard Global Access</h3>
+                    <p class="text-[11px] text-slate-400">Turn OFF to disable and hide the Responder Clipboard tab across all user account privileges.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="cfgEnableResponderClipboard" checked onchange="toggleGlobalResponderClipboard(this.checked)" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer border border-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    <span id="cfgResponderClipboardStatusLabel" class="ml-2.5 text-xs font-extrabold text-emerald-400 uppercase">ENABLED</span>
+                </label>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                    <div class="p-3 bg-slate-950 border-b border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="font-bold text-xs text-sky-400 uppercase">Platforms &amp; Auto-Ticket Rules</h3>
+                            <button type="button" onclick="openSettingModal('platforms', null)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold whitespace-nowrap">+ Add Platform</button>
+                        </div>
+                        <input type="text" id="searchSettingsPlatforms" oninput="renderSettingsTables()" placeholder="🔍 Search platform or prefix..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+                    </div>
+                    <div class="flex-1 overflow-auto max-h-[30rem]">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                                <tr class="[&>th]:p-2.5 [&>th]:text-[10px] [&>th]:uppercase"><th>Platform Name</th><th>Prefix</th><th class="text-center">Auto-Gen</th><th class="text-center">Actions</th></tr>
+                            </thead>
+                            <tbody id="tablePlatformsBody" class="divide-y divide-slate-800 [&>tr>td]:p-2.5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                    <div class="p-3 bg-slate-950 border-b border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="font-bold text-xs text-amber-400 uppercase">Concern Categories (By Group)</h3>
+                            <button type="button" onclick="openSettingModal('categories', null)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold whitespace-nowrap">+ Add Category</button>
+                        </div>
+                        <input type="text" id="searchSettingsCategories" oninput="renderSettingsTables()" placeholder="🔍 Search category or group..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div class="flex-1 overflow-auto max-h-[30rem]">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                                <tr class="[&>th]:p-2.5 [&>th]:text-[10px] [&>th]:uppercase"><th>Category / Group</th><th class="text-center">Actions</th></tr>
+                            </thead>
+                            <tbody id="tableCategoriesBody" class="divide-y divide-slate-800 [&>tr>td]:p-2.5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                    <div class="p-3 bg-slate-950 border-b border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="font-bold text-xs text-emerald-400 uppercase">Ticket Classifications</h3>
+                            <button type="button" onclick="openSettingModal('ticketTypes', null)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold whitespace-nowrap">+ Add Classification</button>
+                        </div>
+                        <input type="text" id="searchSettingsTicketTypes" oninput="renderSettingsTables()" placeholder="🔍 Search classification..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="flex-1 overflow-auto max-h-[30rem]">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                                <tr class="[&>th]:p-2.5 [&>th]:text-[10px] [&>th]:uppercase"><th>Classification Name / SLA</th><th class="text-center">Actions</th></tr>
+                            </thead>
+                            <tbody id="tableTicketTypesBody" class="divide-y divide-slate-800 [&>tr>td]:p-2.5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                    <div class="p-3 bg-slate-950 border-b border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="font-bold text-xs text-purple-400 uppercase">Actions Taken Options</h3>
+                            <button type="button" onclick="openSettingModal('actionsTaken', null)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold whitespace-nowrap">+ Add Action Taken</button>
+                        </div>
+                        <input type="text" id="searchSettingsActionsTaken" oninput="renderSettingsTables()" placeholder="🔍 Search action taken..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div class="flex-1 overflow-auto max-h-[30rem]">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+                                <tr class="[&>th]:p-2.5 [&>th]:text-[10px] [&>th]:uppercase"><th>Action Taken Label</th><th class="text-center">Actions</th></tr>
+                            </thead>
+                            <tbody id="tableActionsTakenBody" class="divide-y divide-slate-800 [&>tr>td]:p-2.5"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TICKET CREATE / EDIT MODAL -->
+    <div id="ticketModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 id="modalTitle" class="font-extrabold text-sm text-white">Create New Ticket Log Record</h3>
+                <button type="button" onclick="closeTicketModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+            <form onsubmit="validateAndSubmitTicketForm(event)" class="p-4 space-y-3 overflow-y-auto text-xs">
+                <input type="hidden" id="editIndex">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Admin No.</label>
+                        <input type="text" id="formAdminNo" readonly class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-amber-400 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Platform</label>
+                        <select id="formPlatform" onchange="onPlatformChange()" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Date Received</label>
+                        <div class="flex gap-1">
+                            <div class="flex items-center bg-slate-950 border border-slate-800 rounded overflow-hidden w-full focus-within:border-sky-500"><input type="text" id="formDateReceivedDisplay" readonly onclick="openSystemDatePicker('formDateReceived', this)" placeholder="MM/DD/YYYY" required class="w-full bg-transparent p-2 text-white font-mono cursor-pointer focus:outline-none"><button type="button" onclick="openSystemDatePicker('formDateReceived', this)" class="px-2 py-2 bg-slate-900 hover:bg-slate-800 text-sky-400 border-l border-slate-800 text-xs">📅</button><input type="hidden" id="formDateReceived" onchange="autoGenTicketNo(false)"></div>
+                            <button type="button" onclick="setFormDateToday()" class="px-2 bg-slate-800 hover:bg-slate-700 rounded text-[10px] font-bold">Today</button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-slate-400 font-bold uppercase text-[10px]">Referral / Ticket Number <span id="ticketGenModeLabel" class="text-sky-400 ml-1"></span></label>
+                        <button type="button" id="btnAutoGen" onclick="autoGenTicketNo(true)" class="text-[10px] text-amber-400 underline">Regenerate #</button>
+                    </div>
+                    <input type="text" id="formReferralNo" required class="w-full bg-slate-900 border border-slate-800 rounded p-2 text-amber-400 font-mono font-bold">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Complainant Name <span class="text-rose-400">*</span></label>
+                        <input type="text" id="formComplainantName" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" placeholder="Required">
+                    </div>
+                    <div class="relative">
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Category <span class="text-rose-400">*</span></label>
+                        <input type="text" id="formCategorySearch" autocomplete="off" oninput="filterCategoryDropdown(this.value)" onfocus="showCategoryDropdown()" placeholder="Type to search category..." class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                        <div id="categoryDropdownList" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-30 hidden"></div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Type of Ticket</label>
+                        <select id="formTicketType" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Details of Ticket / Concern <span class="text-rose-400">*</span></label>
+                    <textarea id="formTicketDetails" rows="2" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" placeholder="Required (non-empty/non-space)"></textarea>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-slate-400 font-bold uppercase text-[10px]">Details of Response <span class="text-rose-400">*</span></label>
+                        <button type="button" onclick="addAdminPrefix()" class="text-[10px] text-sky-400 underline">+ Insert Admin Tag</button>
+                    </div>
+                    <textarea id="formResponseDetails" rows="2" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" placeholder="Required (non-empty/non-space)"></textarea>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Action Taken</label>
+                        <select id="formActionTaken" onchange="update24HourSwitchVisibility()" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Status</label>
+                        <select id="formStatus" onchange="update24HourSwitchVisibility()" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Remarks</label>
+                        <input type="text" id="formRemarks" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div id="switch24HoursWrapper" class="hidden bg-amber-950/35 border border-amber-500/40 rounded-lg p-3 flex items-center justify-between gap-3">
+                    <div>
+                        <span class="block text-xs font-extrabold text-amber-300 uppercase tracking-wide">⏱️ 24 Hours Client Compliance Window</span>
+                        <span class="block text-[11px] text-slate-300">Enable 24-hour waiting period for client submission of further information / documents.</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="formSwitch24Hours" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer border border-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        <span class="ml-2 text-xs font-extrabold text-white uppercase">24 hours</span>
+                    </label>
+                </div>
+                <div id="modalCustomFieldsContainer" class="space-y-2"></div>
+                <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                    <button type="button" onclick="closeTicketModal(true)" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" id="btnSubmitTicket" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold shadow">Save Log Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DUPLICATE COMPLAINT VALIDATION MODAL -->
+    <div id="duplicateWarningModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-[60]">
+        <div class="bg-slate-900 border border-amber-500/50 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">⚠️</span>
+                    <h3 class="font-extrabold text-sm text-amber-400 uppercase tracking-wide">Existing Complainant &amp; Category Found</h3>
+                </div>
+                <button type="button" onclick="cancelDuplicateTicketSave()" class="text-slate-400 hover:text-white text-base">✕</button>
+            </div>
+            <p class="text-slate-300 leading-relaxed">
+                An existing log was found for <strong id="dupComplainantLabel" class="text-white"></strong> under the same category <strong id="dupCategoryLabel" class="text-amber-300"></strong>. Please review the existing record details below:
+            </p>
+            <div id="dupExistingDetailsBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 max-h-60 overflow-y-auto"></div>
+            <div class="pt-2 border-t border-slate-800 flex justify-end gap-2">
+                <button type="button" onclick="cancelDuplicateTicketSave()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold transition">Cancel</button>
+                <button type="button" onclick="proceedDuplicateTicketSave()" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold shadow transition">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENDORSE LETTER MODAL -->
+    <div id="endorseModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-extrabold text-sm text-white">📤 Generate Official Endorsement Letter</h3>
+                <button type="button" onclick="closeEndorseModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+            <form onsubmit="generateEndorsementLetter(event)" class="p-4 space-y-3 overflow-y-auto text-xs">
+                <input type="hidden" id="endorseTicketIndex">
+                <div>
+                    <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Office / Division (Select Region)</label>
+                    <select id="endOfficeSelect" onchange="onRegionDirectorySelect(this.value)" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Chief/Director Name</label>
+                        <select id="endChiefNameSelect" onchange="onEndorseChiefDropdownChange(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-amber-300 font-semibold"></select>
+                        <input type="text" id="endChiefName" required placeholder="Or type / edit Chief/Director Name" class="mt-1.5 w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Position</label>
+                        <input type="text" id="endPosition" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Agency Name</label>
+                        <input type="text" id="endAgencyName" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Office Email Address</label>
+                        <input type="email" id="endEmailAddress" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Office Address</label>
+                    <input type="text" id="endOfficeAddress" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Complainant Name</label>
+                        <input type="text" id="endComplainantName" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Complainant Email Address</label>
+                        <input type="email" id="endComplainantEmail" placeholder="complainant@email.com" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">RDMPAO Email Address (Selected Region)</label>
+                        <input type="email" id="endRdmpaoEmail" placeholder="rdmpao.region@lto.gov.ph" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-amber-300 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Font Family</label>
+                        <select id="endFontFamily" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                            <option value="font-sans">Arial / Sans-Serif</option>
+                            <option value="font-serif">Times New Roman / Serif</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Brief Issue Description</label>
+                    <textarea id="endBriefDescription" rows="2" placeholder="" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></textarea>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <label class="block text-amber-400 font-extrabold uppercase text-[10px]">📎 Attach Supporting Files (Unlimited Images &amp; PDFs)</label>
+                            <p class="text-[10px] text-slate-400">Mag-insert ng kahit ilang Image (PNG/JPG/WEBP) o PDF files, at i-arrange bago i-preview.</p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="triggerEndorseFilePicker()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[11px] font-extrabold shadow transition">+ Add Image / PDF</button>
+                            <button type="button" id="btnClearEndorseAttachments" onclick="clearAllEndorseAttachments()" class="hidden px-2.5 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800/60 rounded-lg text-[10px] font-bold transition">Clear All</button>
+                        </div>
+                    </div>
+
+                    <input type="file" id="endAttachmentFiles" accept="application/pdf,image/*" multiple onchange="handleEndorseFilesSelected(event)" class="hidden">
+
+                    <div id="endAttachmentDropzone" onclick="triggerEndorseFilePicker()" ondragover="handleEndorseDragOver(event)" ondragleave="handleEndorseDragLeave(event)" ondrop="handleEndorseFilesDrop(event)" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-lg p-3 text-center cursor-pointer bg-slate-900/60 transition">
+                        <p class="text-[11px] font-bold text-slate-300">📂 Click here or Drag &amp; Drop Images / PDFs (Multiple batches allowed)</p>
+                        <p class="text-[10px] text-slate-500 mt-0.5">Supports multiple JPG, PNG, WEBP, GIF, and multi-page PDF documents</p>
+                    </div>
+
+                    <!-- ARRANGE / SORT & PAGE LAYOUT CONTROLS (FOR ALL ADMINS) -->
+                    <div id="endAttachmentArrangeBar" class="hidden pt-2 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-sky-400 mb-1">Arrange Files Order</label>
+                            <select id="endAttachmentArrangeMode" onchange="applyEndorseAttachmentArrange(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white font-semibold focus:outline-none focus:border-sky-500">
+                                <option value="custom">✋ Custom Order (Drag &amp; Drop / ↑ ↓)</option>
+                                <option value="name_asc">🔤 Filename (A → Z)</option>
+                                <option value="name_desc">🔤 Filename (Z → A)</option>
+                                <option value="images_first">🖼️ Images First, then PDFs</option>
+                                <option value="pdfs_first">📕 PDFs First, then Images</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-emerald-400 mb-1">Print / Preview Page Layout</label>
+                            <select id="endAttachmentLayoutMode" onchange="onEndorseLayoutModeChange(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-white font-semibold focus:outline-none focus:border-emerald-500">
+                                <option value="page_per_item">📄 Separate Page per File / PDF Page</option>
+                                <option value="compact_flow">📑 Continuous Stacked Flow</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ATTACHED FILES QUEUE LIST -->
+                    <div id="endAttachmentListContainer" class="space-y-1.5 max-h-52 overflow-y-auto"></div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold mb-1 uppercase text-[10px]">Signature Type</label>
+                    <div class="flex gap-4 mt-1">
+                        <label class="flex items-center gap-1.5"><input type="radio" name="sigType" value="esign" checked> E-Signature Block</label>
+                        <label class="flex items-center gap-1.5"><input type="radio" name="sigType" value="manual"> Manual Sign Space</label>
+                    </div>
+                </div>
+                <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                    <button type="button" onclick="closeEndorseModal(true)" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" id="btnPreviewEndorseLetter" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold shadow">Preview Letter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ENDORSE PREVIEW MODAL -->
+    <div id="endorsePreviewModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white text-slate-900 border border-slate-300 rounded-2xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl">
+            <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 no-print bg-slate-50 rounded-t-2xl">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="font-extrabold text-sm text-slate-900">📄 Endorsement Letter &amp; Attachments Preview</h3>
+                    <span id="endorseEditModeBadge" class="hidden px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold uppercase">Editing Mode</span>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" onclick="closeEndorsePreviewModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded shadow-sm text-xs transition">← Edit Form / Arrange Files</button>
+                    <button type="button" id="btnToggleEndorseAttachmentLabels" onclick="toggleEndorseAttachmentLabels()" class="hidden px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded shadow-sm text-xs transition">🏷️ File Labels: ON</button>
+                    <button type="button" id="btnToggleEditEndorseLetter" onclick="toggleEditEndorsementLetter()" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded shadow text-xs transition">✏️ Edit Letter</button>
+                    <button type="button" onclick="printEndorsementLetter()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded shadow text-xs">🖨️ Print / PDF</button>
+                    <button type="button" onclick="closeEndorsePreviewModal()" class="text-slate-500 hover:text-slate-900 font-bold text-base px-1">✕</button>
+                </div>
+            </div>
+            <div id="endorseLetterPrintArea" class="p-8 sm:p-12 overflow-y-auto flex-1 text-xs sm:text-sm leading-relaxed space-y-6 outline-none"></div>
+        </div>
+    </div>
+
+    <!-- LTO DIRECTORY CREATE/EDIT MODAL -->
+    <div id="directoryModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 id="directoryModalTitle" class="font-extrabold text-sm text-white">Add LTO Directory Office</h3>
+                <button type="button" onclick="closeDirectoryModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form onsubmit="saveDirectoryForm(event)" class="space-y-3">
+                <input type="hidden" id="editDirectoryIndex">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Agency Code</label>
+                        <input type="text" id="dirAgencyCode" required placeholder="e.g. RO1" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Name of Office / Region</label>
+                        <input type="text" id="dirOfficeName" required placeholder="e.g. Regional Office 1" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Name of Chief of Office</label>
+                        <input type="text" id="dirChiefName" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Designation / Position</label>
+                        <input type="text" id="dirPosition" required value="Regional Director" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Office Address</label>
+                    <input type="text" id="dirAddress" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Official Number</label>
+                        <input type="text" id="dirNumber" placeholder="(072) 123-4567" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Official Email Address</label>
+                        <input type="email" id="dirEmail" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeDirectoryModal()" class="px-4 py-2 bg-slate-800 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold">Save Directory</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- REGION OFFICIAL ADD/EDIT MODAL -->
+    <div id="officialModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 id="officialModalTitle" class="font-extrabold text-sm text-white">Add Regional Official</h3>
+                <button type="button" onclick="closeOfficialModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form onsubmit="saveOfficialForm(event)" class="space-y-3">
+                <input type="hidden" id="editOfficialIndex">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Role / Rank</label>
+                        <select id="offRoleRank" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-amber-300 font-bold">
+                            <option value="Assistant Secretary">Chief</option>
+                            <option value="Executive Director">Chief</option>
+                            <option value="Regional Director">Regional Director</option>
+                            <option value="Asst. RD">Asst. RD</option>
+                            <option value="Chief">Chief</option>
+                            <option value="Attorney">Chief</option>
+                            <option value="Engineer">Chief</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Designation / Position</label>
+                        <input type="text" id="offPosition" required value="Regional Director" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Chief / Director Name</label>
+                    <input type="text" id="offChiefName" required placeholder="e.g. ELMER J. DECENA" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white uppercase">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Office / Division</label>
+                        <input type="text" id="offDivision" placeholder="e.g. Regional Office / Operations Division" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Contact Number</label>
+                        <input type="text" id="offNumber" placeholder="(043) 756-2222" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-mono">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Official Email Address</label>
+                    <input type="email" id="offEmail" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeOfficialModal()" class="px-4 py-2 bg-slate-800 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold">Save Official</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SETTING ITEM MODAL -->
+    <div id="settingItemModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 id="settingModalTitle" class="font-extrabold text-sm text-white">Manage Item</h3>
+                <button type="button" onclick="closeSettingModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form onsubmit="saveSettingItemForm(event)" class="space-y-3">
+                <input type="hidden" id="settingModalType">
+                <input type="hidden" id="settingModalIndex">
+                <div id="settingModalFieldsContainer" class="space-y-3"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeSettingModal()" class="px-3 py-1.5 bg-slate-800 rounded font-bold">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-bold">Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- REPORT CONFIG MODAL -->
+    <div id="reportConfigModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-extrabold text-sm text-white">⚙️ Official Report Header Configuration</h3>
+                <button type="button" onclick="closeReportConfigModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 overflow-y-auto text-xs">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Republic Header</label>
+                        <input type="text" id="cfgRepRepublic" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Department</label>
+                        <input type="text" id="cfgRepDept" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Agency Name</label>
+                        <input type="text" id="cfgRepAgency" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Office / Division</label>
+                        <input type="text" id="cfgRepOffice" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Logo 1 (Far Left)</label>
+                        <input type="file" id="cfgLogo1File" accept="image/png, image/jpeg, image/webp" onchange="handleLogoUpload(event, 1)" class="text-[10px] text-slate-400 w-full">
+                        <div id="logo1Preview" class="mt-1 flex items-center gap-2"></div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Logo 2</label>
+                        <input type="file" id="cfgLogo2File" accept="image/png, image/jpeg, image/webp" onchange="handleLogoUpload(event, 2)" class="text-[10px] text-slate-400 w-full">
+                        <div id="logo2Preview" class="mt-1 flex items-center gap-2"></div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Logo 3</label>
+                        <input type="file" id="cfgLogo3File" accept="image/png, image/jpeg, image/webp" onchange="handleLogoUpload(event, 3)" class="text-[10px] text-slate-400 w-full">
+                        <div id="logo3Preview" class="mt-1 flex items-center gap-2"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Logo Position</label>
+                        <select id="cfgLogoAlignment" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                            <option value="sides">Both Sides</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Text Alignment</label>
+                        <select id="cfgHeaderTextAlign" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                            <option value="center">Center</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Spacing</label>
+                        <select id="cfgHeaderSpacing" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                            <option value="standard">Standard</option>
+                            <option value="compact">Compact</option>
+                            <option value="spacious">Spacious</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Noted By Name</label>
+                        <input type="text" id="cfgNotedName" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1">Noted By Designation</label>
+                        <input type="text" id="cfgNotedDesig" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                    <button type="button" onclick="closeReportConfigModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-bold">Cancel</button>
+                    <button type="button" onclick="saveReportConfig()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold">Save &amp; Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER ACCOUNT MODAL -->
+    <div id="userModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 id="userModalTitle" class="font-extrabold text-sm text-white">Create User Account</h3>
+                <button type="button" onclick="closeUserModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form onsubmit="saveUserForm(event)" class="space-y-3">
+                <input type="hidden" id="editUserIndex">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Username</label>
+                        <input type="text" id="formUsername" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Operator Name</label>
+                        <input type="text" id="formFullName" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Role</label>
+                        <select id="formUserRole" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                            <option value="Admin">Admin</option>
+                            <option value="AdminTL">AdminTL</option>
+                            <option value="Super Admin">Super Admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Password</label>
+                        <input type="text" id="formUserPass" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-mono">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Default Portal</label>
+                        <select id="formUserDefaultPortal" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Start Time</label>
+                        <input type="time" id="formUserPortalStart" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">End Time</label>
+                        <input type="time" id="formUserPortalEnd" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                    </div>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 p-3 rounded-lg space-y-2">
+                    <span class="block text-[10px] font-bold text-amber-400 uppercase">Granular Permissions</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2"><input type="checkbox" id="formCanReports"> Access Reports</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="formCanDeleteLogs"> Delete Logs</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="formCanManageUsers"> Manage Users</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="formCanAccessSettings"> Access Settings</label>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between bg-slate-950 border border-slate-800 p-2.5 rounded-lg">
+                    <label class="flex items-center gap-2"><input type="checkbox" id="formEnableCustomColor" onchange="toggleColorPicker(this.checked)"> Custom Row Color</label>
+                    <input type="color" id="formUserLogColor" value="#9a4e2a" disabled class="h-7 w-14 rounded bg-transparent">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeUserModal()" class="px-4 py-2 bg-slate-800 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold">Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MY ACCOUNT MODAL -->
+    <div id="myAccountModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-extrabold text-sm text-white">⚙️ My Account Settings</h3>
+                <button type="button" onclick="closeMyAccountModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form onsubmit="saveMyAccountForm(event)" class="space-y-3">
+                <div>
+                    <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Username</label>
+                    <input type="text" id="myAccountUsername" readonly class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-400">
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Display Name</label>
+                    <input type="text" id="myAccountName" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+                </div>
+                <div class="flex items-center justify-between bg-slate-950 border border-slate-800 p-2.5 rounded-lg">
+                    <label class="flex items-center gap-2"><input type="checkbox" id="myAccountEnableColor" onchange="toggleMyColorPicker(this.checked)"> Enable Custom Log Color</label>
+                    <input type="color" id="myAccountLogColor" value="#9a4e2a" disabled class="h-7 w-14 rounded bg-transparent">
+                </div>
+                <label class="flex items-center gap-2 text-sky-400 font-bold"><input type="checkbox" id="myAccountTogglePass" onchange="togglePasswordChangeSection(this.checked)"> Change Password</label>
+                <div id="passwordChangeSection" style="display: none;" class="space-y-2 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    <input type="password" id="myAccountOldPass" placeholder="Current Password" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+                    <input type="password" id="myAccountNewPass" placeholder="New Password" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+                    <input type="password" id="myAccountConfirmPass" placeholder="Confirm New Password" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeMyAccountModal()" class="px-4 py-2 bg-slate-800 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DELETE BY DATE MODAL -->
+    <div id="deleteLogsModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-extrabold text-sm text-rose-400">🗑️ Delete Logs By Date</h3>
+            <div>
+                <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Target Date (MM/DD/YYYY)</label>
+                <input type="text" id="delLogDate" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-mono">
+            </div>
+            <div>
+                <label class="block text-slate-400 font-bold text-[10px] uppercase mb-1">Authorization Password</label>
+                <input type="password" id="delLogPassword" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeDeleteLogsModal()" class="px-4 py-2 bg-slate-800 rounded-lg font-bold">Cancel</button>
+                <button type="button" onclick="confirmDeleteLogsByDate()" class="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold">Delete Permanently</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGOUT MODAL -->
+    <div id="logoutModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-extrabold text-sm text-white">🚪 Confirm Logout</h3>
+            <p class="text-slate-400">Are you sure you want to sign out of the PAT/SMT Logs System?</p>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeLogoutModal()" class="px-4 py-2 bg-slate-800 rounded-lg font-bold">Cancel</button>
+                <button type="button" onclick="executeSystemLogout()" class="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYSTEM ALERT MODAL -->
+    <div id="systemModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div class="flex items-center gap-2">
+                    <span id="systemModalIcon">⚠️</span>
+                    <h3 id="systemModalTitleText" class="font-extrabold text-sm text-white">System Notice</h3>
+                </div>
+                <button type="button" onclick="closeSystemModal()" class="text-slate-400 hover:text-white text-sm">✕</button>
+            </div>
+            <p id="systemModalMessage" class="text-xs text-slate-300 leading-relaxed"></p>
+            <div id="systemModalButtons" class="flex justify-end gap-2 pt-2"></div>
+        </div>
+    </div>
+
+    <!-- GLOBAL SYSTEM DATE PICKER POPUP (INDEPENDENT FROM WORKDAY CALCULATOR OFF-DATES) -->
+    <div id="globalSystemDatePickerPopup" class="hidden fixed w-72 bg-slate-900 border border-sky-500/50 rounded-xl shadow-2xl p-3 z-[80] text-xs space-y-2.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <button type="button" onclick="changeGlobalPickerMonth(-1)" class="px-2 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-slate-200 font-bold">◀</button>
+            <span id="globalPickerMonthYearLabel" class="font-extrabold text-xs text-white uppercase tracking-wide">November 2026</span>
+            <button type="button" onclick="changeGlobalPickerMonth(1)" class="px-2 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-slate-200 font-bold">▶</button>
+        </div>
+        <div id="globalPickerCalendarDays" class="grid grid-cols-7 gap-1 text-center"></div>
+        <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-1">
+            <button type="button" onclick="selectGlobalPickerToday()" class="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold">Today</button>
+            <button type="button" id="btnGlobalPickerClear" onclick="clearGlobalPickerDate()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded text-[10px] font-bold">Clear</button>
+            <button type="button" onclick="closeGlobalSystemDatePicker()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold">Close</button>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 no-print"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

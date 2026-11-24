@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — LTO PAT/SMT Logs System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center font-sans p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="text-center space-y-2">
+            <div class="w-12 h-12 mx-auto rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-extrabold text-amber-400 text-base">LTO</div>
+            <h1 class="font-extrabold text-lg sm:text-xl text-white tracking-tight">PAT/SMT LOGS SYSTEM</h1>
+            <p class="text-xs text-slate-400">Central Public Assistance Office (CPAO)</p>
+        </div>
+
+        <form onsubmit="handleLogin(event)" class="space-y-4 text-xs">
+            <div>
+                <label class="block text-slate-400 font-bold uppercase text-[10px] mb-1">Username</label>
+                <input type="text" id="loginUsername" required placeholder="USERNAME" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-slate-400 font-bold uppercase text-[10px] mb-1">Password</label>
+                <div class="relative flex items-center">
+                    <input type="password" id="loginPassword" required placeholder="PASSWORD" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 pr-11 text-white focus:outline-none focus:border-amber-500">
+                    <button type="button" id="toggleLoginPasswordBtn" onclick="toggleLoginPasswordVisibility()" aria-label="Show or hide password" title="Show / Hide Password" class="absolute right-2.5 p-1.5 text-slate-400 hover:text-amber-400 rounded-md transition focus:outline-none">
+                        <svg id="eyeIconShow" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <svg id="eyeIconHide" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="loginErrorMsg" class="text-rose-400 font-semibold text-center hidden"></div>
+            <button type="submit" class="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold rounded-lg shadow-lg transition">Sign In to Portal</button>
+        </form>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                sessionStorage.removeItem('LTO_ACTIVE_USER');
+                localStorage.removeItem('LTO_ACTIVE_USER');
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('reason') === 'idle') {
+                    const errEl = document.getElementById('loginErrorMsg');
+                    if (errEl) {
+                        errEl.textContent = "Session expired due to 20 minutes of inactivity. Please sign in again.";
+                        errEl.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {}
+        });
+
+        function toggleLoginPasswordVisibility() {
+            const passInput = document.getElementById('loginPassword');
+            const eyeShow = document.getElementById('eyeIconShow');
+            const eyeHide = document.getElementById('eyeIconHide');
+            if (!passInput) return;
+
+            const isPassword = passInput.type === 'password';
+            passInput.type = isPassword ? 'text' : 'password';
+            if (eyeShow) eyeShow.classList.toggle('hidden', isPassword);
+            if (eyeHide) eyeHide.classList.toggle('hidden', !isPassword);
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const uInput = document.getElementById('loginUsername').value.trim().toLowerCase();
+            const pInput = document.getElementById('loginPassword').value.trim();
+            const errEl = document.getElementById('loginErrorMsg');
+
+            let users = [];
+            try {
+                const saved = localStorage.getItem('LTO_CPAO_USERS_2026');
+                if (saved) users = JSON.parse(saved);
+            } catch(err) {}
+
+            if (!users || users.length === 0) {
+                users = [
+                    { username: "admin36", pass: "123", role: "Super Admin", name: "Admin 36", defaultPortal: "FACEBOOK", logColor: "#9a4e2a", canReports: true, canDeleteLogs: true, canManageUsers: true, canAccessSettings: true },
+                    { username: "admin42", pass: "123", role: "Admin", name: "Admin 42", defaultPortal: "IMKC", logColor: "Default", canReports: false, canDeleteLogs: false, canManageUsers: false, canAccessSettings: false },
+                    { username: "janzen", pass: "password", role: "Admin", name: "Janzen Huwee N. Baltores", defaultPortal: "FACEBOOK", logColor: "Default", canReports: false, canDeleteLogs: false, canManageUsers: false, canAccessSettings: false }
+                ];
+                localStorage.setItem('LTO_CPAO_USERS_2026', JSON.stringify(users));
+            }
+
+            const found = users.find(u => String(u.username || '').trim().toLowerCase() === uInput && String(u.pass || '').trim() === pInput);
+            
+            if (found) {
+                sessionStorage.setItem('LTO_ACTIVE_USER', JSON.stringify(found));
+                window.location.href = 'index.html';
+            } else {
+                errEl.textContent = "Invalid username or password. Please try again.";
+                errEl.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
