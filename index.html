@@ -179,11 +179,23 @@
                     <input type="text" id="repStartDateDisplay" readonly onclick="openSystemDatePicker('repStartDate', this)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-white w-28">
                     <input type="hidden" id="repEndDate" onchange="generateReport()">
                     <input type="text" id="repEndDateDisplay" readonly onclick="openSystemDatePicker('repEndDate', this)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-white w-28">
+                    <select id="repFilterPlatform" onchange="generateReport()" aria-label="Filter report by platform" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white">
+                        <option value="">All Portals / Platforms</option>
+                    </select>
+                    <select id="repFilterCategory" onchange="generateReport()" aria-label="Filter report by concern category" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white max-w-[180px]">
+                        <option value="">All Concern Categories</option>
+                    </select>
+                    <select id="repAdminScope" onchange="generateReport()" aria-label="Filter report by log ownership" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white">
+                        <option value="all">All Logs</option>
+                        <option value="my">My Logs Only</option>
+                    </select>
                 </div>
                 <div class="flex items-center gap-2">
                     <span id="reportEditModeBadge" class="hidden px-2 py-1 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">Editing</span>
+                    <button type="button" onclick="generateReport()" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold">🔄 Generate</button>
                     <button type="button" onclick="openReportConfigModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold">🖼️ Header & Logos</button>
                     <button type="button" id="btnToggleEditReportPreview" onclick="toggleEditReportPreview()" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold">✏️ Edit Report</button>
+                    <button type="button" onclick="printReportDocument()" class="px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg font-bold">🖨️ Print / PDF</button>
                     <button type="button" onclick="exportReportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg font-bold">⬇️ CSV</button>
                 </div>
             </div>

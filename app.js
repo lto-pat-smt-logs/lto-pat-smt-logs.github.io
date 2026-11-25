@@ -2385,7 +2385,7 @@ function renderSettingsTables() {
                 <tr>
                     <td class="font-bold text-white">${escapeHtml(name)}</td>
                     <td class="font-mono text-amber-400">${escapeHtml(prefix)}</td>
-                    <td class="text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${autoGen ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'}">${autoGen ? 'YES' : 'NO'}</span></td>
+                    <td class="text-center"><button type="button" onclick="togglePlatformAutoGen(${idx})" title="Click to toggle Auto-Generate Ticket Number" class="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${autoGen ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}">${autoGen ? 'YES' : 'NO'}</button></td>
                     <td class="text-center space-x-1">
                         <button type="button" onclick="openSettingModal('platforms', ${idx})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold">✏️ Edit</button>
                         <button type="button" onclick="deleteSettingItem('platforms', ${idx})" class="px-2 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 rounded text-[10px] font-bold">🗑️</button>
@@ -4840,8 +4840,11 @@ function renderTable() {
         const isOwner = isTicketOwnedByCurrentUser(t);
 
         const tr = document.createElement('tr');
+        const isPendingRow = !isClosed;
         const customBg = getRowCustomBackground(t);
-        if (customBg) {
+        if (isPendingRow) {
+            tr.className = 'bg-rose-950/70 hover:bg-rose-900/80 border-l-4 border-l-rose-500 text-rose-100 transition';
+        } else if (customBg) {
             tr.style.backgroundColor = customBg;
             tr.className = 'text-white transition';
         } else {
@@ -5114,24 +5117,35 @@ function closeTicketModal(clearDraft = false) {
 }
 
 function autoGenTicketNo(forceOverwrite = false) {
-    const platName = document.getElementById('formPlatform').value;
-    const platObj = AppState.settings.platforms.find(p => (typeof p === 'string' ? p : p.name) === platName);
-    const prefix = (platObj && typeof platObj === 'object' && platObj.prefix) ? platObj.prefix : 'CPAO';
-    const isAuto = platObj && typeof platObj === 'object' ? !!platObj.autoGen : false;
+    const platName = String(document.getElementById('formPlatform')?.value || '').trim();
+    const platObj = AppState.settings.platforms.find(p => String(typeof p === 'string' ? p : p.name).trim().toUpperCase() === platName.toUpperCase());
+    const prefix = (platObj && typeof platObj === 'object' && platObj.prefix) ? String(platObj.prefix).trim().toUpperCase() : 'CPAO';
+    const isAuto = platObj && typeof platObj === 'object' ? (platObj.autoGen === true || platObj.autoGen === 'true') : true;
 
     const refInput = document.getElementById('formReferralNo');
-    const editIdx = document.getElementById('editTicketIndex').value;
+    const editIdx = document.getElementById('editTicketIndex')?.value || '';
     if (!refInput) return;
 
-    if (editIdx === '' && isAuto) {
+    if ((editIdx === '' && isAuto) || forceOverwrite) {
         if (forceOverwrite || !refInput.value.trim()) {
-            const rawDate = document.getElementById('formDateReceived').value || getTodayISO();
+            const rawDate = document.getElementById('formDateReceived')?.value || getTodayISO();
             const parts = rawDate.split('-');
             const dateCompact = parts.length === 3 ? `${parts[1]}${parts[2]}${parts[0]}` : '11122026';
             const adminMatch = String(currentUser.username || '').match(/\d+/) || String(currentUser.name || '').match(/\d+/);
             const adminNum = adminMatch ? adminMatch[0] : '36';
-            const randSuffix = Math.floor(10 + Math.random() * 89);
-            refInput.value = `${prefix}-${dateCompact}-${adminNum}-${randSuffix}`;
+            const basePattern = `${prefix}-${dateCompact}-${adminNum}-`;
+            let maxSeq = 0;
+            (AppState.tickets || []).forEach(t => {
+                const existingRef = String(t.referralNo || '').trim();
+                if (existingRef.toUpperCase().startsWith(basePattern.toUpperCase())) {
+                    const seqNum = parseInt(existingRef.slice(basePattern.length), 10);
+                    if (!isNaN(seqNum) && seqNum > maxSeq) maxSeq = seqNum;
+                }
+            });
+            refInput.value = `${basePattern}${String(maxSeq + 1).padStart(2, '0')}`;
+            if (forceOverwrite) {
+                showToast(`Generated Ticket No.: ${refInput.value}`, "info");
+            }
         }
     }
 }
@@ -5520,4 +5534,258 @@ function runWorkdayCalculator() {
     const resSub = document.getElementById('calcResultSubtitle');
     if (resDate) resDate.textContent = formattedDue;
     if (resSub) resSub.textContent = `After ${daysVal} working days (${skipped} weekend/off days skipped)`;
+}
+
+
+function togglePlatformAutoGen(idx) {
+    const p = AppState.settings.platforms[idx];
+    if (!p) return;
+    if (typeof p === 'string') {
+        AppState.settings.platforms[idx] = { name: p, prefix: 'CPAO', autoGen: true };
+    } else {
+        p.autoGen = !(p.autoGen === true || p.autoGen === 'true');
+    }
+    const updated = AppState.settings.platforms[idx];
+    persistLocalSettingsCache();
+    renderSettingsTables();
+    populateDropdowns();
+    saveAllSettingsToCloud(true);
+    showToast(`${updated.name}: Auto-Generate Ticket Number set to ${updated.autoGen ? 'YES' : 'NO'}.`, "success");
+}
+
+function populateReportFilterDropdowns() {
+    ensureCategoryGroupsInitialized();
+    const platSel = document.getElementById('repFilterPlatform');
+    if (platSel) {
+        const cur = platSel.value;
+        platSel.innerHTML = '<option value="">All Portals / Platforms</option>';
+        (AppState.settings.platforms || []).forEach(p => {
+            const name = typeof p === 'string' ? p : p.name;
+            if (name) platSel.innerHTML += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+        });
+        if (cur) platSel.value = cur;
+    }
+    const catSel = document.getElementById('repFilterCategory');
+    if (catSel) {
+        const cur = catSel.value;
+        catSel.innerHTML = '<option value="">All Concern Categories</option>';
+        CATEGORY_GROUPS.forEach(grp => {
+            const items = AppState.settings.categoryGroups[grp] || [];
+            if (items.length > 0) {
+                const opts = items.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+                catSel.innerHTML += `<optgroup label="${escapeHtml(grp)}">${opts}</optgroup>`;
+            }
+        });
+        if (cur) catSel.value = cur;
+    }
+    const scopeSel = document.getElementById('repAdminScope');
+    if (scopeSel && !isSuperAdmin() && !isAdminTL()) {
+        scopeSel.value = 'my';
+        scopeSel.disabled = true;
+    } else if (scopeSel) {
+        scopeSel.disabled = false;
+    }
+}
+
+function generateReport() {
+    if (!canUserGenerateReports()) return;
+    setReportPreviewEditState(false);
+
+    const container = document.getElementById('reportPreviewContainer');
+    if (!container) return;
+
+    const startISO = document.getElementById('repStartDate')?.value || getTodayISO();
+    const endISO = document.getElementById('repEndDate')?.value || getTodayISO();
+    const platFilter = document.getElementById('repFilterPlatform')?.value || '';
+    const catFilter = document.getElementById('repFilterCategory')?.value || '';
+    const scopeFilter = document.getElementById('repAdminScope')?.value || 'all';
+
+    const startDate = new Date(startISO + "T00:00:00");
+    const endDate = new Date(endISO + "T23:59:59");
+
+    const filtered = (AppState.tickets || []).filter(t => {
+        if (!t.dateReceived) return false;
+        const iso = mmddyyyyToISO(t.dateReceived);
+        const tDate = new Date(iso + "T12:00:00");
+        if (isNaN(tDate.getTime()) || tDate < startDate || tDate > endDate) return false;
+        if (platFilter && String(t.platform || '').trim().toUpperCase() !== platFilter.toUpperCase()) return false;
+        if (catFilter && String(t.category || '').trim().toLowerCase() !== catFilter.toLowerCase()) return false;
+        if (scopeFilter === 'my' && !isTicketOwnedByCurrentUser(t)) return false;
+        return true;
+    });
+
+    const totalReceived = filtered.length;
+    const resolvedCount = filtered.filter(t => String(t.status || '').trim().toLowerCase() === 'closed').length;
+    const pendingCount = totalReceived - resolvedCount;
+    const overallEfficiency = totalReceived > 0 ? ((resolvedCount / totalReceived) * 100).toFixed(1) : "0.0";
+
+    const portalStats = {};
+    filtered.forEach(t => {
+        const p = String(t.platform || 'OTHER').trim().toUpperCase();
+        if (!portalStats[p]) portalStats[p] = { total: 0, closed: 0, pending: 0 };
+        portalStats[p].total++;
+        if (String(t.status || '').trim().toLowerCase() === 'closed') portalStats[p].closed++;
+        else portalStats[p].pending++;
+    });
+
+    const portalEntries = Object.entries(portalStats).sort((a, b) => b[1].total - a[1].total);
+    const maxPortalTotal = portalEntries.length > 0 ? Math.max(...portalEntries.map(e => e[1].total)) : 1;
+
+    const portalRowsHtml = portalEntries.length === 0
+        ? `<tr><td colspan="5" class="text-center py-4 text-slate-500 italic">No ticket records found for the selected date range and filters.</td></tr>`
+        : portalEntries.map(([portal, st]) => {
+            const pct = st.total > 0 ? ((st.closed / st.total) * 100).toFixed(1) : "0.0";
+            const barWidth = Math.max(4, Math.round((st.total / maxPortalTotal) * 100));
+            return `
+                <tr class="border-b border-slate-200">
+                    <td class="py-2 px-2.5 font-bold text-slate-900">${escapeHtml(portal)}</td>
+                    <td class="py-2 px-2.5 text-center font-mono font-bold text-slate-800">${st.total}</td>
+                    <td class="py-2 px-2.5 text-center font-mono font-bold text-emerald-700">${st.closed}</td>
+                    <td class="py-2 px-2.5 text-center font-mono font-bold text-rose-700">${st.pending}</td>
+                    <td class="py-2 px-2.5">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-700 rounded-full" style="width:${barWidth}%"></div>
+                            </div>
+                            <span class="font-mono text-[10px] font-bold text-slate-700 w-12 text-right">${pct}%</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    const groupStats = {};
+    CATEGORY_GROUPS.forEach(g => { groupStats[g] = { total: 0, closed: 0, pending: 0 }; });
+    filtered.forEach(t => {
+        const grp = getGroupForCategory(t.category);
+        if (!groupStats[grp]) groupStats[grp] = { total: 0, closed: 0, pending: 0 };
+        groupStats[grp].total++;
+        if (String(t.status || '').trim().toLowerCase() === 'closed') groupStats[grp].closed++;
+        else groupStats[grp].pending++;
+    });
+
+    const groupRowsHtml = Object.entries(groupStats).map(([grp, st]) => {
+        const rate = st.total > 0 ? ((st.closed / st.total) * 100).toFixed(1) : "0.0";
+        return `
+            <tr class="border-b border-slate-200">
+                <td class="py-1.5 px-2.5 font-semibold text-slate-900">${escapeHtml(grp)}</td>
+                <td class="py-1.5 px-2.5 text-center font-mono font-bold">${st.total}</td>
+                <td class="py-1.5 px-2.5 text-center font-mono text-emerald-700 font-bold">${st.closed}</td>
+                <td class="py-1.5 px-2.5 text-center font-mono text-rose-700 font-bold">${st.pending}</td>
+                <td class="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">${rate}%</td>
+            </tr>
+        `;
+    }).join('');
+
+    const typeCounts = {};
+    filtered.forEach(t => {
+        const tt = String(t.ticketType || 'Unspecified').trim();
+        typeCounts[tt] = (typeCounts[tt] || 0) + 1;
+    });
+    const typeSummaryHtml = Object.keys(typeCounts).length === 0
+        ? `<p class="text-[11px] text-slate-500 italic">No classification data in range.</p>`
+        : Object.entries(typeCounts).map(([label, cnt]) => `
+            <div class="flex items-center justify-between text-[11px] py-1 border-b border-slate-200">
+                <span class="font-semibold text-slate-800">${escapeHtml(label)}</span>
+                <span class="font-mono font-extrabold text-blue-900">${cnt}</span>
+            </div>
+        `).join('');
+
+    const cfg = AppState.settings.reportConfig || {};
+    const headerHtml = buildReportPageHeaderHtml(
+        cfg,
+        startISO,
+        endISO,
+        overallEfficiency,
+        resolvedCount,
+        totalReceived,
+        cfg.title || "EXECUTIVE RESOLUTION & PORTAL PERFORMANCE REPORT"
+    );
+
+    const preparedBy = String(currentUser.name || currentUser.username || "ADMIN").toUpperCase();
+    const matchedSig = REPORT_SIGNATORIES.find(s => s.name.toLowerCase() === preparedBy.toLowerCase());
+    const preparedDesig = matchedSig ? matchedSig.designation : "Public Relations Officer I";
+    const notedName = cfg.notedName || "MARY MAY M. JACOB";
+    const notedDesig = cfg.notedDesig || "Head, LTO COMMS/CPAO";
+
+    container.innerHTML = `
+        <div id="printableReportDocument" class="space-y-6">
+            <section class="report-a4-page space-y-5">
+                <div class="space-y-4">
+                    ${headerHtml}
+
+                    <div class="grid grid-cols-4 gap-3 pt-1">
+                        <div class="border border-slate-300 bg-slate-50 rounded-lg p-2.5 text-center">
+                            <p class="text-[9px] font-extrabold uppercase text-slate-500">Total Received</p>
+                            <p class="text-xl font-extrabold text-slate-900 mt-0.5">${totalReceived}</p>
+                        </div>
+                        <div class="border border-emerald-300 bg-emerald-50/70 rounded-lg p-2.5 text-center">
+                            <p class="text-[9px] font-extrabold uppercase text-emerald-700">Closed / Resolved</p>
+                            <p class="text-xl font-extrabold text-emerald-800 mt-0.5">${resolvedCount}</p>
+                        </div>
+                        <div class="border border-rose-300 bg-rose-50/70 rounded-lg p-2.5 text-center">
+                            <p class="text-[9px] font-extrabold uppercase text-rose-700">Pending Action</p>
+                            <p class="text-xl font-extrabold text-rose-800 mt-0.5">${pendingCount}</p>
+                        </div>
+                        <div class="border border-blue-300 bg-blue-50/70 rounded-lg p-2.5 text-center">
+                            <p class="text-[9px] font-extrabold uppercase text-blue-700">Resolution Rate</p>
+                            <p class="text-xl font-extrabold text-blue-900 mt-0.5">${overallEfficiency}%</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-[11px] font-extrabold uppercase text-slate-800 tracking-wide mb-1.5 border-l-4 border-blue-800 pl-2">I. Portal / Platform Performance Breakdown</h4>
+                        <table class="w-full text-left border-collapse text-[11px] border border-slate-300">
+                            <thead class="bg-slate-800 text-white uppercase text-[9.5px]">
+                                <tr>
+                                    <th class="py-2 px-2.5">Platform / Portal</th>
+                                    <th class="py-2 px-2.5 text-center">Received</th>
+                                    <th class="py-2 px-2.5 text-center">Closed</th>
+                                    <th class="py-2 px-2.5 text-center">Pending</th>
+                                    <th class="py-2 px-2.5">Efficiency Bar</th>
+                                </tr>
+                            </thead>
+                            <tbody>${portalRowsHtml}</tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h4 class="text-[11px] font-extrabold uppercase text-slate-800 tracking-wide mb-1.5 border-l-4 border-amber-600 pl-2">II. Concern Category Group Distribution</h4>
+                        <table class="w-full text-left border-collapse text-[11px] border border-slate-300">
+                            <thead class="bg-slate-800 text-white uppercase text-[9.5px]">
+                                <tr>
+                                    <th class="py-1.5 px-2.5">Category Group</th>
+                                    <th class="py-1.5 px-2.5 text-center">Total</th>
+                                    <th class="py-1.5 px-2.5 text-center">Closed</th>
+                                    <th class="py-1.5 px-2.5 text-center">Pending</th>
+                                    <th class="py-1.5 px-2.5 text-right">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>${groupRowsHtml}</tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h4 class="text-[11px] font-extrabold uppercase text-slate-800 tracking-wide mb-1 border-l-4 border-emerald-700 pl-2">III. Ticket Classification Summary</h4>
+                        <div class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2">
+                            ${typeSummaryHtml}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-6 grid grid-cols-2 gap-8 text-xs text-slate-900 border-t border-slate-300">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase text-slate-500 mb-8">Prepared by:</p>
+                        <p class="font-extrabold uppercase text-slate-900">${escapeHtml(preparedBy)}</p>
+                        <p class="text-[11px] text-slate-700">${escapeHtml(preparedDesig)}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold uppercase text-slate-500 mb-8">Noted & Approved by:</p>
+                        <p class="font-extrabold uppercase text-slate-900">${escapeHtml(notedName)}</p>
+                        <p class="text-[11px] text-slate-700">${escapeHtml(notedDesig)}</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    `;
 }
